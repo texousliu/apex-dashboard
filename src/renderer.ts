@@ -50,23 +50,13 @@ import { renderSidebarReading } from './render/sidebar-reading';
 // Public surface kept here for existing importers (reading-mini-timer, view).
 export { renderSidebarReading, refreshSidebarReadingWidget, openEndReadingModal } from './render/sidebar-reading';
 
-import { Chart, LineController, LineElement, PointElement, BarController, BarElement, LinearScale, CategoryScale, Filler, Tooltip } from 'chart.js';
+import { getCSSVar, isAccentLight } from './render/color';
+import { destroyChart, destroyAllChartInstances, renderTrackerLineChart, renderTrackerBarChart, renderTrackerHeatmap } from './render/tracker-chart';
 
-Chart.register(LineController, LineElement, PointElement, BarController, BarElement, LinearScale, CategoryScale, Filler, Tooltip);
-
-const chartInstances = new Map<string, Chart>();
 /** Countdown tick timers keyed by their timer id, mapped to the widget content
  *  they animate. destroyAllCharts skips entries still inside a preserved widget
  *  area, so re-attaching the sidebar widgets DOM keeps them running. */
 const countdownTimers = new Map<number, HTMLElement>();
-
-function destroyChart(cardId: string): void {
-	const chart = chartInstances.get(cardId);
-	if (chart) {
-		chart.destroy();
-		chartInstances.delete(cardId);
-	}
-}
 
 /** Destroy chart instances and idle countdown timers ahead of a re-render.
  *  `preserveWidgets` is the detached-but-reused sidebar widgets element from the
@@ -74,58 +64,12 @@ function destroyChart(cardId: string): void {
  *  survive so the re-attached DOM keeps ticking. Timers are also self-cleaning
  *  (they check isConnected), so any survivors of a discarded DOM unwind themselves. */
 export function destroyAllCharts(preserveWidgets?: PreserveScope): void {
-	for (const [, chart] of chartInstances) {
-		chart.destroy();
-	}
-	chartInstances.clear();
+	destroyAllChartInstances();
 	for (const [id, content] of countdownTimers) {
 		if (isInPreserveScope(preserveWidgets, content)) continue;
 		window.clearInterval(id);
 		countdownTimers.delete(id);
 	}
-}
-
-function getCSSVar(name: string): string {
-	const el = activeDocument.querySelector('.apex-dashboard-root');
-	if (!el) return '';
-	return getComputedStyle(el).getPropertyValue(name).trim();
-}
-
-// Determine whether the dashboard accent is light enough that white text on it
-// would be unreadable (e.g. the mono/墨白 and onyx themes).
-function isAccentLight(): boolean {
-	const el = activeDocument.querySelector('.apex-dashboard-root');
-	if (!el) return false;
-	return isLightColor(getComputedStyle(el).getPropertyValue('--db-accent').trim());
-}
-
-// Accepts "#rgb", "#rrggbb", "rgb(...)" or "rgba(...)"; returns true when the
-// color is bright enough that dark text reads better than white.
-function isLightColor(color: string): boolean {
-	const value = color.trim();
-	if (value.startsWith('rgb')) {
-		const nums = value.match(/[\d.]+/g);
-		if (!nums || nums.length < 3) return false;
-		return relativeLuminance(Number(nums[0]), Number(nums[1]), Number(nums[2])) > 0.6;
-	}
-	const hex = value.replace(/^#/, '');
-	if (!/^[0-9a-fA-F]+$/.test(hex)) return false;
-	const full = hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex;
-	if (full.length !== 6) return false;
-	return relativeLuminance(
-		parseInt(full.slice(0, 2), 16),
-		parseInt(full.slice(2, 4), 16),
-		parseInt(full.slice(4, 6), 16),
-	) > 0.6;
-}
-
-// WCAG relative luminance (0..1).
-function relativeLuminance(r: number, g: number, b: number): number {
-	const toLinear = (c: number) => {
-		const s = c / 255;
-		return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-	};
-	return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
 }
 
 let taskDragSource: { cardId: string; taskPath: number[] } | null = null;
@@ -3432,155 +3376,5 @@ function renderTrackerBody(container: HTMLElement, card: DashboardCard, app: App
 		addStat(t('tracker.streak'), `${streak}d`);
 		addStat(t('tracker.min'), minVal);
 		addStat(t('tracker.max'), maxVal);
-	}
-}
-
-function renderTrackerLineChart(el: HTMLElement, data: import('./types').TrackerDataPoint[], size: CardSize, accentColor: string, cardId: string): void {
-	const chartWrap = el.createDiv({ cls: 'dashboard-tracker-chart' });
-	const canvasEl = chartWrap.createEl('canvas', { cls: 'dashboard-chart-canvas' });
-	const ctx = canvasEl.getContext('2d');
-	if (!ctx) return;
-
-	const chart = new Chart(ctx, {
-		type: 'line',
-		data: {
-			labels: data.map(p => p.date.slice(5)),
-			datasets: [{
-				data: data.map(p => p.value),
-				borderColor: accentColor,
-				backgroundColor: `${accentColor}22`,
-				fill: true,
-				tension: 0.4,
-				pointRadius: size === 'L' ? 3 : 0,
-				pointHoverRadius: 5,
-				pointBackgroundColor: accentColor,
-				borderWidth: 2,
-			}],
-		},
-		options: {
-			responsive: true,
-			maintainAspectRatio: false,
-			plugins: { legend: { display: false }, tooltip: { enabled: true } },
-			scales: {
-				x: { display: false },
-				y: { display: false },
-			},
-			animation: { duration: 600 },
-		},
-	});
-	chartInstances.set(cardId, chart);
-}
-
-function renderTrackerBarChart(el: HTMLElement, data: import('./types').TrackerDataPoint[], size: CardSize, accentColor: string, cardId: string): void {
-	const chartWrap = el.createDiv({ cls: 'dashboard-tracker-chart' });
-	const canvasEl = chartWrap.createEl('canvas', { cls: 'dashboard-chart-canvas' });
-	const ctx = canvasEl.getContext('2d');
-	if (!ctx) return;
-
-	const textColor = getCSSVar('--db-text-muted') || '#888';
-	const validVals = data.filter(p => p.value !== null).map(p => p.value!);
-	const barMax = validVals.length > 0 ? Math.max(...validVals) : 1;
-
-	const chart = new Chart(ctx, {
-		type: 'bar',
-		data: {
-			labels: data.map(p => p.date.slice(5)),
-			datasets: [{
-				data: data.map(p => p.value ?? 0),
-				backgroundColor: data.map(p => {
-					if (p.value === null) return 'transparent';
-					const intensity = barMax > 0 ? p.value / barMax : 0;
-					return `${accentColor}${Math.round(40 + intensity * 180).toString(16).padStart(2, '0')}`;
-				}),
-				borderRadius: 2,
-				barPercentage: 0.8,
-			}],
-		},
-		options: {
-			responsive: true,
-			maintainAspectRatio: false,
-			plugins: { legend: { display: false }, tooltip: { enabled: true } },
-			scales: {
-				x: { display: false },
-				y: { display: size === 'L', grid: { display: false }, ticks: { color: textColor, font: { size: 10 } } },
-			},
-			animation: { duration: 600 },
-		},
-	});
-	chartInstances.set(cardId, chart);
-}
-
-function renderTrackerHeatmap(el: HTMLElement, data: import('./types').TrackerDataPoint[], minVal: number, maxVal: number, size: CardSize, accentColor: string): void {
-	const heatmap = el.createDiv({ cls: 'dashboard-tracker-heatmap' });
-
-	const range = maxVal - minVal || 1;
-	const cellSize = size === 'M' ? 10 : 14;
-	const gap = 2;
-
-	// Organize data into weeks (columns), days are rows (Mon-Sun)
-	// Each column = 1 week, from oldest to newest
-	const firstDate = data[0] ? new Date(data[0].date + 'T00:00:00') : new Date();
-	const startDayOfWeek = firstDate.getDay(); // 0=Sun, 1=Mon...
-	const mondayOffset = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1; // days from Monday
-
-	// Build week columns
-	const weeks: (import('./types').TrackerDataPoint | null)[][] = [];
-	let currentWeek: (import('./types').TrackerDataPoint | null)[] = [];
-
-	// Pad first week with nulls to align to Monday
-	for (let i = 0; i < mondayOffset; i++) {
-		currentWeek.push(null);
-	}
-
-	for (const point of data) {
-		currentWeek.push(point);
-		if (currentWeek.length === 7) {
-			weeks.push(currentWeek);
-			currentWeek = [];
-		}
-	}
-	if (currentWeek.length > 0) {
-		weeks.push(currentWeek);
-	}
-
-	// Limit visible weeks based on size
-	const maxWeeks = size === 'M' ? 15 : size === 'L' ? 26 : 52;
-	const visibleWeeks = weeks.slice(-maxWeeks);
-
-	const grid = heatmap.createDiv({ cls: 'dashboard-tracker-heatmap-grid' });
-	grid.setCssProps({
-		display: 'grid',
-		gridTemplateColumns: `repeat(${visibleWeeks.length}, ${cellSize}px)`,
-		gridTemplateRows: `repeat(7, ${cellSize}px)`,
-		gap: `${gap}px`,
-	});
-
-	// Day labels (Mon, Tue, ... Sun) for L size
-	if (size === 'L') {
-		const labels = heatmap.createDiv({ cls: 'dashboard-tracker-heatmap-labels' });
-		const dayNames = ['M', '', 'W', '', 'F', '', 'S'];
-		for (const name of dayNames) {
-			labels.createDiv({ cls: 'dashboard-tracker-heatmap-day-label', text: name });
-		}
-	}
-
-	for (const week of visibleWeeks) {
-		for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
-			const point = week[dayIdx] ?? null;
-			const cell = grid.createDiv({ cls: 'dashboard-tracker-heatmap-cell' });
-			cell.style.width = `${cellSize}px`;
-			cell.style.height = `${cellSize}px`;
-			cell.style.borderRadius = `${Math.max(2, cellSize / 4)}px`;
-
-			if (point === null || point.value === null) {
-				cell.addClass('dashboard-tracker-heatmap-cell--empty');
-			} else {
-				const intensity = (point.value - minVal) / range;
-				const alpha = 0.15 + intensity * 0.85;
-				cell.style.backgroundColor = accentColor;
-				cell.style.opacity = String(alpha);
-				cell.title = `${point.date}: ${point.value}`;
-			}
-		}
 	}
 }

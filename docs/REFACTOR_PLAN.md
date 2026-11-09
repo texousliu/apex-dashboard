@@ -308,7 +308,9 @@ renderSectionState(el, { kind: 'loading' | 'empty' | 'error'; text: string; hint
 > - ✅ 经验：抽出去的副作用是「原文件留下的 import 变成 unused」——eslint 会一次性列出，照着删即可；但 `export … from` 不会让本地 import 变成"已使用"，只 import 真正在本文件调用的名字。
 > - ✅ 切片 B：`src/render/reminder-popup.ts`（272 行）——任务行上的提醒芯片 + 弹窗（设置/清除/逾期样式）。整簇只用 `setIcon` / `t` / 行元素与回调，`renderer.ts` 只保留 `createReminderButton` 的 import。`renderer.ts` 3847 → 3586 行。
 > - ✅ 连带修了一处测试耦合：`verify-task-toggle-quiet` 原来 grep `renderer.ts` 找 `pathOf: () => number[],`，现在改为读新模块——**搬代码时要同步搬「源码断言」**，否则测试会以"契约被破坏"的形式误报。
-> - ⬜ 下一块建议：tracker 的三个图表函数（约 150 行）→ `src/render/tracker-chart.ts`，需要连 `chartInstances` / `destroyChart` 一起搬（`destroyAllCharts` 也引用它们，属于"必须整簇移动"的类型）。
+> - ✅ 切片 C：`src/render/tracker-chart.ts`（181 行）+ `src/render/color.ts`（50 行）。图表簇必须整簇移动——`chartInstances` / `destroyChart` / Chart.js 的注册都跟着走，`destroyAllCharts` 改为调用 `destroyAllChartInstances()`，行为不变。`getCSSVar` / `isAccentLight` / `isLightColor` / `relativeLuminance` 因为图表和强调色文字都要用，独占成 `color.ts`。`renderer.ts` 3586 → 3380 行。
+> - 📉 累计：`renderer.ts` 4557 → 3380 行（−26%），新增 `src/render/` 5 个模块共 1235 行。
+> - ⬜ 下一块建议：`renderTaskItem` + 折叠/镜像（`toggleCollapseInPlace` / `mirrorTaskToggleInPlace` / `readTaskPath`，约 500 行）→ `src/render/task-row.ts`；再往后是 `renderWikilink` 那一簇（要连 `resolveNoteFile` 的 basename 索引一起搬，索引是跨模块共享状态，得先独立成 `note-index.ts`）。
 
 ---
 
