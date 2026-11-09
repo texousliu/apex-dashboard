@@ -306,7 +306,9 @@ renderSectionState(el, { kind: 'loading' | 'empty' | 'error'; text: string; hint
 > - ✅ 顺手抽出 `src/render/time-format.ts` 的 `formatTime`：番茄钟与阅读都在用它显示计时，原来只存在于 renderer 里、跨模块只能重复实现。
 > - ✅ 移动方式：整段剪切 → 改相对导入 → `renderer.ts` 保留 `export { … } from './render/sidebar-reading'`，外部调用点（`reading-mini-timer`、`view.ts`）零改动。
 > - ✅ 经验：抽出去的副作用是「原文件留下的 import 变成 unused」——eslint 会一次性列出，照着删即可；但 `export … from` 不会让本地 import 变成"已使用"，只 import 真正在本文件调用的名字。
-> - ⬜ 下一块建议：提醒弹窗簇（`createReminderButton` / `showReminderPopup` / `closeAllReminderPopups`，约 260 行）→ `src/render/reminder-popup.ts`；tracker 的三个图表函数（约 150 行）→ `src/render/tracker-chart.ts`（要连 `chartInstances` 一起搬）。
+> - ✅ 切片 B：`src/render/reminder-popup.ts`（272 行）——任务行上的提醒芯片 + 弹窗（设置/清除/逾期样式）。整簇只用 `setIcon` / `t` / 行元素与回调，`renderer.ts` 只保留 `createReminderButton` 的 import。`renderer.ts` 3847 → 3586 行。
+> - ✅ 连带修了一处测试耦合：`verify-task-toggle-quiet` 原来 grep `renderer.ts` 找 `pathOf: () => number[],`，现在改为读新模块——**搬代码时要同步搬「源码断言」**，否则测试会以"契约被破坏"的形式误报。
+> - ⬜ 下一块建议：tracker 的三个图表函数（约 150 行）→ `src/render/tracker-chart.ts`，需要连 `chartInstances` / `destroyChart` 一起搬（`destroyAllCharts` 也引用它们，属于"必须整簇移动"的类型）。
 
 ---
 

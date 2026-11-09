@@ -25,6 +25,9 @@ import { readTaskPath } from '../src/renderer';
 
 const syncSrc = readFileSync('src/sync.ts', 'utf-8');
 const rendererSrc = readFileSync('src/renderer.ts', 'utf-8');
+// The reminder chip moved to its own module (Phase 4); the row contract it
+// pins (a live path getter, never a frozen array) still has to hold.
+const reminderSrc = readFileSync('src/render/reminder-popup.ts', 'utf-8');
 const viewSrc = readFileSync('src/view.ts', 'utf-8');
 const sectionSrc = readFileSync('src/calendar-section.ts', 'utf-8');
 const modalSrc = readFileSync('src/calendar-modal.ts', 'utf-8');
@@ -146,7 +149,7 @@ assert.ok(!/callbacks\.onTaskEdit\(card\.id, path,/.test(rendererSrc)
 	'edit / delete / collapse read the current path too (all are path-keyed)');
 assert.ok(rendererSrc.includes('const toggledPath = currentPath();'),
 	'the toggle resolves ONE path per click so the DOM reorder and the model update agree');
-assert.ok(rendererSrc.includes('pathOf: () => number[],'),
+assert.ok(reminderSrc.includes('pathOf: () => number[],'),
 	'the reminder button takes a getter instead of a frozen path');
 
 // 7. The quiet persist is QUEUED: the daily mirror is a read-modify-write of
