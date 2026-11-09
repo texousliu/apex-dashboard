@@ -12,7 +12,7 @@
  * collapse-all pill; the ungrouped bucket paginates at the end). Pinned
  * skills, sort, page size, group assignments and the view mode persist
  * through the dashboard-skills-prefs CustomEvent (view.ts →
- * sync.updateSkillsConfig).
+ * sync.updateSectionConfig('skillsConfig')).
  */
 
 import { App, Menu, Notice, setIcon } from 'obsidian';

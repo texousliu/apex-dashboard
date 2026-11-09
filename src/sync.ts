@@ -1,6 +1,6 @@
 import { moveDashboardCard } from './card-move';
 import { App, TFile } from 'obsidian';
-import type { DashboardSettings, DashboardCard, DashboardData, TaskItem, DocNode, QuickAction, BannerData, CardType } from './types';
+import type { DashboardSettings, DashboardCard, DashboardData, DashboardColumn, TaskItem, DocNode, QuickAction, BannerData, CardType } from './types';
 import { parse, serialize, generateDefaultMarkdown } from './parser';
 import { isImmersiveMode } from './immersive-grid';
 import { readCardTasksFromToday, writeCardTasksToToday } from './daily-task-source';
@@ -31,6 +31,8 @@ import { moveToOwnRow, moveBeside, unpartnerAt } from './column-pairs';
 import { workspaceBackupName } from './workspace-registry';
 
 import type { DashboardUpdateSource } from './render-update';
+
+export type SectionConfigKey = (typeof SyncEngine.SECTION_CONFIG_KEYS)[number];
 
 type DataCallback = (data: DashboardData, source: DashboardUpdateSource) => void;
 
@@ -559,14 +561,29 @@ export class SyncEngine {
 		await this.writeToDisk();
 	}
 
-	async updateLibraryConfig(columnName: string, config: import('./types').LibraryConfig): Promise<void> {
-		if (!this.data) return;
+	/** Column fields that hold a section's config object. Every config modal
+	 *  funnels through these keys, so adding a section type means adding its key
+	 *  here — not another copy of the read-modify-write-then-save dance. */
+	static readonly SECTION_CONFIG_KEYS = [
+		'libraryConfig', 'dataviewConfig', 'webConfig', 'rssConfig', 'pipelineConfig',
+		'skillsConfig', 'pmConfig', 'wereadConfig', 'ticktickConfig',
+	] as const;
 
+	/** Replace one config object on one column and persist. Unknown column
+	 *  names are a no-op (the modal outlived its column). */
+	async updateSectionConfig<K extends SectionConfigKey>(columnName: string, key: K, config: DashboardColumn[K]): Promise<void> {
+		await this.patchColumn(columnName, col => ({ ...col, [key]: config }));
+	}
+
+	/** Shared read-modify-write for a single column. A column that no longer
+	 *  exists (the modal outlived it) is a no-op — saving an identical board
+	 *  would burn a backup file and re-render for nothing. */
+	private async patchColumn(columnName: string, patch: (col: DashboardColumn) => DashboardColumn): Promise<void> {
+		if (!this.data) return;
+		if (!this.data.columns.some(col => col.name === columnName)) return;
 		this.data = {
 			...this.data,
-			columns: this.data.columns.map(col =>
-				col.name === columnName ? { ...col, libraryConfig: config } : col
-			),
+			columns: this.data.columns.map(col => col.name === columnName ? patch(col) : col),
 		};
 		await this.writeToDisk();
 	}
@@ -576,118 +593,16 @@ export class SyncEngine {
 	 *  disk write. showCover true drops the persisted opt-out (it is the
 	 *  default; only false is written). */
 	async updateNotesSectionConfig(columnName: string, config: import('./types').LibraryConfig, showCover: boolean): Promise<void> {
-		if (!this.data) return;
-
-		this.data = {
-			...this.data,
-			columns: this.data.columns.map(col =>
-				col.name === columnName
-					? { ...col, libraryConfig: config, showCover: showCover ? undefined : false }
-					: col
-			),
-		};
-		await this.writeToDisk();
-	}
-
-	async updateWereadConfig(columnName: string, config: import('./types').WereadConfig): Promise<void> {
-		if (!this.data) return;
-
-		this.data = {
-			...this.data,
-			columns: this.data.columns.map(col =>
-				col.name === columnName ? { ...col, wereadConfig: config } : col
-			),
-		};
-		await this.writeToDisk();
-	}
-
-	async updateTickTickConfig(columnName: string, config: import('./types').TickTickConfig): Promise<void> {
-		if (!this.data) return;
-
-		this.data = {
-			...this.data,
-			columns: this.data.columns.map(col =>
-				col.name === columnName ? { ...col, ticktickConfig: config } : col
-			),
-		};
-		await this.writeToDisk();
-	}
-
-	async updateDataviewConfig(columnName: string, config: import('./types').DataviewConfig): Promise<void> {
-		if (!this.data) return;
-
-		this.data = {
-			...this.data,
-			columns: this.data.columns.map(col =>
-				col.name === columnName ? { ...col, dataviewConfig: config } : col
-			),
-		};
-		await this.writeToDisk();
-	}
-
-	async updateWebConfig(columnName: string, config: import('./types').WebEmbedConfig): Promise<void> {
-		if (!this.data) return;
-
-		this.data = {
-			...this.data,
-			columns: this.data.columns.map(col =>
-				col.name === columnName ? { ...col, webConfig: config } : col
-			),
-		};
-		await this.writeToDisk();
-	}
-
-	async updateRssConfig(columnName: string, config: import('./types').RssConfig): Promise<void> {
-		if (!this.data) return;
-
-		this.data = {
-			...this.data,
-			columns: this.data.columns.map(col =>
-				col.name === columnName ? { ...col, rssConfig: config } : col
-			),
-		};
-		await this.writeToDisk();
-	}
-
-	async updatePipelineConfig(columnName: string, config: import('./types').PipelineConfig): Promise<void> {
-		if (!this.data) return;
-
-		this.data = {
-			...this.data,
-			columns: this.data.columns.map(col =>
-				col.name === columnName ? { ...col, pipelineConfig: config } : col
-			),
-		};
-		await this.writeToDisk();
-	}
-
-	async updateSkillsConfig(columnName: string, config: import('./types').SkillsSectionConfig): Promise<void> {
-		if (!this.data) return;
-
-		this.data = {
-			...this.data,
-			columns: this.data.columns.map(col =>
-				col.name === columnName ? { ...col, skillsConfig: config } : col
-			),
-		};
-		await this.writeToDisk();
+		await this.patchColumn(columnName, col => ({
+			...col,
+			libraryConfig: config,
+			showCover: showCover ? undefined : false,
+		}));
 	}
 
 	async updateImmersiveEditing(editable: boolean, items: import('./types').ImmersiveItem[]): Promise<void> {
 		if (!this.data) return;
 		this.data = { ...this.data, immersiveEditable: editable, immersive: items };
-		await this.writeToDisk();
-	}
-
-	async updatePmConfig(columnName: string, config: import('./types').PmConfig): Promise<void> {
-		if (!this.data) return;
-
-		this.data = {
-			...this.data,
-			columns: this.data.columns.map(col =>
-				col.name === columnName ? { ...col, pmConfig: config } : col
-			),
-		};
 		await this.writeToDisk();
 	}
 

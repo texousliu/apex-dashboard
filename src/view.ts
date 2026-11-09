@@ -795,7 +795,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			const col = this.data?.columns.find(c => c.name === columnName);
 			if (col?.rssConfig && typeof pageSize === 'number') {
 				const next = { ...col.rssConfig, pageSize };
-				void this.sync.updateRssConfig(columnName, next).then(() => {
+				void this.sync.updateSectionConfig(columnName, 'rssConfig', next).then(() => {
 					this.refreshSectionInPlace(columnName);
 				});
 			}
@@ -814,7 +814,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			for (const key of Object.keys(next) as Array<keyof typeof next>) {
 				if (next[key] === undefined) delete next[key];
 			}
-			void this.sync.updateSkillsConfig(columnName, next).then(() => {
+			void this.sync.updateSectionConfig(columnName, 'skillsConfig', next).then(() => {
 				this.refreshSectionInPlace(columnName);
 			});
 		}) as EventListener);
@@ -834,7 +834,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			new SkillCreateConfigModal(this.app, this.plugin, undefined, saved => {
 				const fresh = this.data?.columns.find(c => c.name === columnName);
 				void (async () => {
-					await this.sync.updateSkillsConfig(columnName, { ...fresh?.skillsConfig, createSkill: saved });
+					await this.sync.updateSectionConfig(columnName, 'skillsConfig', { ...fresh?.skillsConfig, createSkill: saved });
 					await rememberSkillNames(this.plugin, saved.agent, [saved.skillName]);
 					this.dispatchSkillCreate(saved);
 				})();
@@ -853,7 +853,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				onSaveTargets: ids => {
 					// Fresh lookup: prefs may have changed while the modal was open.
 					const fresh = this.data?.columns.find(c => c.name === columnName);
-					void this.sync.updateSkillsConfig(columnName, { ...fresh?.skillsConfig, importTargets: ids });
+					void this.sync.updateSectionConfig(columnName, 'skillsConfig', { ...fresh?.skillsConfig, importTargets: ids });
 				},
 				onImported: (name, agents) => {
 					// Fresh skills surface immediately: rescan on next render
@@ -872,7 +872,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			const col = this.data?.columns.find(c => c.name === columnName);
 			if (!col?.pipelineConfig) return;
 			const next = { ...col.pipelineConfig, filter };
-			void this.sync.updatePipelineConfig(columnName, next).then(() => {
+			void this.sync.updateSectionConfig(columnName, 'pipelineConfig', next).then(() => {
 				this.refreshSectionInPlace(columnName);
 			});
 		}) as EventListener);
@@ -883,7 +883,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			const col = this.data?.columns.find(c => c.name === columnName);
 			if (!col?.pipelineConfig) return;
 			const next = { ...col.pipelineConfig, sortBy };
-			void this.sync.updatePipelineConfig(columnName, next).then(() => {
+			void this.sync.updateSectionConfig(columnName, 'pipelineConfig', next).then(() => {
 				this.refreshSectionInPlace(columnName);
 			});
 		}) as EventListener);
@@ -897,7 +897,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			// out by the rail or below the render limit) keep their saved slots
 			// instead of being demoted past the reordered ones.
 			const stageOrder = { ...config.stageOrder, [stageValue]: mergeManualStageOrder(config.stageOrder?.[stageValue] ?? [], orderedPaths) };
-			void this.sync.updatePipelineConfig(columnName, { ...config, stageOrder }).then(() => this.refreshSectionInPlace(columnName));
+			void this.sync.updateSectionConfig(columnName, 'pipelineConfig', { ...config, stageOrder }).then(() => this.refreshSectionInPlace(columnName));
 		}) as EventListener);
 
 		// Pipeline column width — dragged column edge persists per stage.
@@ -910,7 +910,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				...config,
 				stages: config.stages.map(stage => stage.value === stageValue ? { ...stage, width } : stage),
 			};
-			void this.sync.updatePipelineConfig(columnName, next);
+			void this.sync.updateSectionConfig(columnName, 'pipelineConfig', next);
 		}) as EventListener);
 
 		// Pipeline skill-button reorder (dragged on a card's foot): persist the
@@ -930,7 +930,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				...config,
 				skills: reorderSkillSubset(config.skills, stageValue, scope, orderedIds),
 			};
-			void this.sync.updatePipelineConfig(columnName, next).then(() => {
+			void this.sync.updateSectionConfig(columnName, 'pipelineConfig', next).then(() => {
 				this.refreshSectionInPlace(columnName);
 			});
 		}) as EventListener);
@@ -951,7 +951,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			const { columnName, pinned } = e.detail as { columnName: string; pinned: string[] };
 			const col = this.data?.columns.find(c => c.name === columnName);
 			if (!col || col.sectionType !== 'pm' || !col.pmConfig || !Array.isArray(pinned)) return;
-			void this.sync.updatePmConfig(columnName, { ...col.pmConfig, pinned }).then(() => {
+			void this.sync.updateSectionConfig(columnName, 'pmConfig', { ...col.pmConfig, pinned }).then(() => {
 				this.refreshSectionInPlace(columnName);
 			});
 		}) as EventListener);
@@ -965,7 +965,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			for (const key of Object.keys(next) as Array<keyof typeof next>) {
 				if (next[key] === undefined) delete next[key];
 			}
-			void this.sync.updatePmConfig(columnName, next).then(() => {
+			void this.sync.updateSectionConfig(columnName, 'pmConfig', next).then(() => {
 				this.refreshSectionInPlace(columnName);
 			});
 		}) as EventListener);
@@ -976,7 +976,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			const { columnName, order } = e.detail as { columnName: string; order: string[] };
 			const col = this.data?.columns.find(c => c.name === columnName);
 			if (!col || col.sectionType !== 'pm' || !col.pmConfig || !Array.isArray(order)) return;
-			void this.sync.updatePmConfig(columnName, { ...col.pmConfig, order }).then(() => {
+			void this.sync.updateSectionConfig(columnName, 'pmConfig', { ...col.pmConfig, order }).then(() => {
 				this.refreshSectionInPlace(columnName);
 			});
 		}) as EventListener);
@@ -1014,7 +1014,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			if (col) {
 				const config = col.ticktickConfig ?? { view: 'today' as const };
 				this.suppressNextRender = true;
-				void this.sync.updateTickTickConfig(columnName, { ...config, view }).then(() => {
+				void this.sync.updateSectionConfig(columnName, 'ticktickConfig', { ...config, view }).then(() => {
 					this.refreshSectionInPlace(columnName);
 				});
 			}
@@ -1032,7 +1032,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			const col = this.data?.columns.find(c => c.name === columnName);
 			if (col?.ticktickConfig) {
 				this.suppressNextRender = true;
-				void this.sync.updateTickTickConfig(columnName, { ...col.ticktickConfig, projectWidths }).then(() => {
+				void this.sync.updateSectionConfig(columnName, 'ticktickConfig', { ...col.ticktickConfig, projectWidths }).then(() => {
 					this.refreshSectionInPlace(columnName);
 				});
 			}
@@ -1781,13 +1781,13 @@ export class DashboardView extends ItemView implements HoverParent {
 			onArchiveTasks: (columnName: string) => this.archiveCompletedTasks(columnName),
 				onLibraryConfigChange: (columnName: string, config: LibraryConfig) => {
 				this.suppressNextRender = true;
-				void this.sync.updateLibraryConfig(columnName, config).then(() => {
+				void this.sync.updateSectionConfig(columnName, 'libraryConfig', config).then(() => {
 					this.refreshSectionInPlace(columnName);
 				});
 			},
 				onDataviewConfigChange: (columnName: string, config: DataviewConfig) => {
 					this.suppressNextRender = true;
-					void this.sync.updateDataviewConfig(columnName, config).then(() => {
+					void this.sync.updateSectionConfig(columnName, 'dataviewConfig', config).then(() => {
 						this.refreshSectionInPlace(columnName);
 					});
 				},
@@ -2390,7 +2390,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			this.app,
 			existingConfig,
 			(config) => {
-				void this.sync.updateLibraryConfig(colName, config);
+				void this.sync.updateSectionConfig(colName, 'libraryConfig', config);
 			},
 		);
 		modal.open();
@@ -2402,7 +2402,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		const modal = new DataviewConfigModal(
 			this.app,
 			existing,
-			(config) => { void this.sync.updateDataviewConfig(colName, config); },
+			(config) => { void this.sync.updateSectionConfig(colName, 'dataviewConfig', config); },
 		);
 		modal.open();
 	}
@@ -2416,7 +2416,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		const modal = new WebConfigModal(
 			this.app,
 			existing,
-			(config) => { void this.sync.updateWebConfig(colName, config); },
+			(config) => { void this.sync.updateSectionConfig(colName, 'webConfig', config); },
 		);
 		modal.open();
 	}
@@ -2429,7 +2429,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		const modal = new RssConfigModal(
 			this.app,
 			existing,
-			(config) => { void this.sync.updateRssConfig(colName, config); },
+			(config) => { void this.sync.updateSectionConfig(colName, 'rssConfig', config); },
 		);
 		modal.open();
 	}
@@ -2450,7 +2450,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		const modal = new SkillSectionConfigModal(
 			this.app,
 			column?.skillsConfig,
-			(config) => { void this.sync.updateSkillsConfig(colName, config); },
+			(config) => { void this.sync.updateSectionConfig(colName, 'skillsConfig', config); },
 			this.plugin,
 		);
 		modal.open();
@@ -2465,7 +2465,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			column?.pipelineConfig,
 			(config) => {
 				void (async () => {
-					await this.sync.updatePipelineConfig(colName, config);
+					await this.sync.updateSectionConfig(colName, 'pipelineConfig', config);
 					// Remember valid skill names per agent so the pickers
 					// offer them next time (see skill-registry).
 					for (const agent of new Set(config.skills.map(skill => skill.agent))) {
@@ -2485,7 +2485,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			column?.pmConfig,
 			(config) => {
 				void (async () => {
-					await this.sync.updatePmConfig(colName, config);
+					await this.sync.updateSectionConfig(colName, 'pmConfig', config);
 					for (const agent of new Set((config.skills ?? []).map(skill => skill.agent))) {
 						await rememberSkillNames(this.plugin, agent, (config.skills ?? []).filter(skill => skill.agent === agent && skill.skillName).map(skill => skill.skillName));
 					}
@@ -2503,7 +2503,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		const modal = new MediaConfigModal(
 			this.app,
 			column?.libraryConfig,
-			(config) => { void this.sync.updateLibraryConfig(colName, config); },
+			(config) => { void this.sync.updateSectionConfig(colName, 'libraryConfig', config); },
 		);
 		modal.open();
 	}
@@ -2514,7 +2514,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		const modal = new WereadConfigModal(
 			this.app,
 			existing,
-			(config) => { void this.sync.updateWereadConfig(colName, config); },
+			(config) => { void this.sync.updateSectionConfig(colName, 'wereadConfig', config); },
 		);
 		modal.open();
 	}
@@ -2696,7 +2696,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		const projects = await fetchTickTickProjects(region, this.plugin.settings.ticktickCookie, this.plugin.settings.ticktickDeviceVersion);
 		new TickTickFilterModal(this.app, projects, config.hiddenProjects, (hiddenProjects) => {
 			this.suppressNextRender = true;
-			void this.sync.updateTickTickConfig(colName, { ...config, hiddenProjects }).then(() => {
+			void this.sync.updateSectionConfig(colName, 'ticktickConfig', { ...config, hiddenProjects }).then(() => {
 				this.refreshSectionInPlace(colName);
 			});
 		}).open();
@@ -2720,7 +2720,7 @@ export class DashboardView extends ItemView implements HoverParent {
 			libraryConfig?.showProperties,
 			libraryConfig?.propertyLimit,
 			(result) => {
-				void this.sync.updateLibraryConfig(colName, folderResultToLibraryConfig(libraryConfig, result));
+				void this.sync.updateSectionConfig(colName, 'libraryConfig', folderResultToLibraryConfig(libraryConfig, result));
 			},
 			libraryConfig?.groupMode,
 			libraryConfig?.visibleProperties,

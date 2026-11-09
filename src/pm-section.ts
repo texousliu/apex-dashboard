@@ -59,7 +59,7 @@ export function renderPmSection(
 	// OVERLAP the section below when a view change grows the content).
 	const content = el.createDiv({ cls: 'dashboard-pmsec-content' });
 	// View state: stage filter is ephemeral; sort mode + grouped view persist
-	// through dashboard-pm-prefs (view.ts → sync.updatePmConfig).
+	// through dashboard-pm-prefs (view.ts → sync.updateSectionConfig('pmConfig')).
 	let stageFilter = '';
 	let lastProjects: readonly PmProject[] = [];
 	const savePrefs = (prefs: Partial<NonNullable<DashboardColumn['pmConfig']>>): void => {
@@ -155,7 +155,7 @@ export function renderPmSection(
 		toolbar.prepend(countPill);
 
 		// Belt-and-braces: strip cardSize here — the in-memory config (set via
-		// updatePmConfig before any parse round-trip) could still carry the
+		// updateSectionConfig('pmConfig') before any parse round-trip) could still carry the
 		// retired value. Only the kanban branch re-injects compact.
 		// Progressive render (library idiom): first PM_PAGE_SIZE cards, then a
 		// load-more pill — a section with 100+ projects must not build every

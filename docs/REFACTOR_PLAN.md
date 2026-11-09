@@ -286,7 +286,9 @@ renderSectionState(el, { kind: 'loading' | 'empty' | 'error'; text: string; hint
 > - ✅ footer 在 body **之前**构建、但排在 body **之后**的 DOM 位置：需要拿 `confirmBtn` 做校验禁用的弹窗（rss 的 URL 校验）在首次渲染时就能拿到按钮。
 > - ✅ 已迁移 4 个：web / rss / media / dataview（覆盖全部 data + media 类配置弹窗）。rss 的 `trySave` 收敛为 `submit()` 并复用基类的 `confirmBtn`。
 > - ✅ 契约测试 `verify-section-config-modal`（外壳/重复打开不叠 DOM/保存与取消接线/footer 先于 body/变体与自定义按钮/零残留）。
-> - ⬜ 遗留：`dashboard-library-empty` 这类纯文本空态（约 19 处，含弹窗内的列表空态）与 `dashboard-rss-empty` 尚未迁移；folder / notes / library / pipeline / pm / skills / weread 这 7 个 section 配置弹窗仍在手写外壳；9 个 `updateXxxConfig` 合并未开始。
+> - ✅ 切片 C `updateSectionConfig`（`src/sync.ts`）：9 个 `updateXxxConfig` 的读-改-写合并为 `updateSectionConfig(columnName, key, config)` + 私有 `patchColumn()`；key 列表 `SyncEngine.SECTION_CONFIG_KEYS` 成为「哪些字段是卡片配置」的唯一声明。未知列名直接短路（不再写一份一模一样的看板）。`updateNotesSectionConfig` 收敛到同一 helper，仍是「配置 + showCover」一次写盘。
+> - ✅ 27 个 `view.ts` 调用点改走 `updateSectionConfig(name, 'xxxConfig', cfg)`；契约测试 `verify-section-config-write`（每键一写/不串列/未知列零写/notes 双字段一次写/旧方法名零残留）。
+> - ⬜ 遗留：`dashboard-library-empty` 这类纯文本空态（约 19 处，含弹窗内的列表空态）与 `dashboard-rss-empty` 尚未迁移；folder / notes / library / pipeline / pm / skills / weread 这 7 个 section 配置弹窗仍在手写外壳。
 
 **验收**：视觉零回归（截图对比关键卡片空态）；`verify-*-config` 全绿。
 

@@ -5,7 +5,7 @@
  * user attach ANY agent (plus optional prompt template) as extra card
  * buttons, the same row shape the skill widget's config uses. Saving routes
  * through the section's prefs event (dashboard-skills-prefs → view.ts →
- * sync.updateSkillsConfig), so the card re-renders in place.
+ * sync.updateSectionConfig('skillsConfig')), so the card re-renders in place.
  */
 
 import { App, Modal, setIcon } from 'obsidian';
