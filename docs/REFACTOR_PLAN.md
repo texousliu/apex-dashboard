@@ -241,9 +241,16 @@ renderSectionState(el, { kind: 'loading' | 'empty' | 'error'; text: string; hint
 
 **验收**：`npm test` 全绿；纯新增文件，`main.js` 产物不变。
 
-### Phase 1　行为三件套（1–2 天，收益最高）
+### Phase 1　行为三件套（1–2 天，收益最高）——进行中
 
 顺序很关键：**先统一行为，再统一结构**。因为用户能感知的 bug 都在行为层，而且改行为的风险边界清楚。
+
+> **进度**：
+> - ✅ 切片 A `attachNoteJump` + `NoteOpeners`（`src/note-jump.ts`）：dataview 行、日历网格三处、日程弹窗行已迁移；pipeline 的单击+双击重命名是另一种手势，保持原样。
+> - ✅ 切片 B `writeTaskToggle`（`src/task-toggle.ts`）：dataview 与日历系的勾选写盘收敛为一个串行队列（修掉两卡并发写同一笔记的丢更新），失败 Notice 统一；待办卡片保持 `sync.toggleTaskQuiet` 自有通道（写的是看板数据文件+日记镜像，另一种工件）。
+> - ✅ 切片 C `SectionRefreshBus`（`src/section-refresh.ts`）：dataview 私有注册表与日历 sectionReloaders 合并为带 channel 的总线。pipeline/library/pm 不需要接 popover 编辑刷新——它们的扫描卡本来就走 vault 去抖（500ms 后必刷，签名守卫防闪烁）。
+> - 新增契约测试：`verify-task-toggle-contract`、`verify-section-refresh`；`verify-dataview-task-open` 改为行为断言。
+> - ⬜ 遗留：17 个存量 `no-base-to-string` lint 错误（pipeline/pm 模型层）待清，清完 `npm run check` 才全绿。
 
 1. `attachNoteJump` + `NoteOpeners` 落地；迁移 dataview → calendar-grid → calendar-modal → pipeline。
 2. `TaskToggleService` 落地；先接 dataview 与日历（这两家的写盘路径本来就一致），再接待办卡片（需把 `toggleTaskQuiet` 的日记镜像搬进 service）。TickTick 最后接。

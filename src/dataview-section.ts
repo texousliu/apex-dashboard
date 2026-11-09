@@ -6,6 +6,7 @@ import { t, getLocale } from './i18n';
 import { attachNoteHover } from './hover-preview';
 import { attachNoteJump, type NoteOpeners } from './note-jump';
 import { writeTaskToggle, type TaskToggleOutcome } from './task-toggle';
+import { registerSectionRefresh } from './section-refresh';
 import { buildPages, invalidatePath } from './dql/page-builder';
 import { executeDql } from './dql';
 import { coerceNumber, dqlCompare, formatDate, formatValue, kindOf, makeObject } from './dql/values';
@@ -35,7 +36,8 @@ const HEATMAP_MAX_CELL = 20;
  *  debounce), so an edit made through a row's own popover would leave the card
  *  showing the pre-edit text until the user pressed refresh. `paths` is the set
  *  of notes the last result showed — a card that does not show the edited note
- *  has nothing to re-run. */
+ *  has nothing to re-run. Registered on the shared refresh bus
+ *  (src/section-refresh.ts) with the 'note-edited' channel only. */
 export interface DataviewSectionHandle {
 	readonly el: HTMLElement;
 	/** Notes the current result shows (replaced after every run). */
@@ -44,30 +46,15 @@ export interface DataviewSectionHandle {
 	readonly reload: () => void;
 }
 
-const dvSectionHandles: DataviewSectionHandle[] = [];
-
-/** Register a rendered section. A re-rendered dashboard builds fresh section
- *  elements, so handles are dropped as soon as their DOM is gone. */
+/** Register a rendered section on the shared refresh bus (same element
+ *  replaces its previous entry). */
 export function registerDataviewSection(handle: DataviewSectionHandle): void {
-	pruneDataviewSections();
-	const existing = dvSectionHandles.findIndex(h => h.el === handle.el);
-	if (existing >= 0) dvSectionHandles[existing] = handle;
-	else dvSectionHandles.push(handle);
-}
-
-function pruneDataviewSections(): void {
-	for (let i = dvSectionHandles.length - 1; i >= 0; i--) {
-		if (!dvSectionHandles[i]!.el.isConnected) dvSectionHandles.splice(i, 1);
-	}
-}
-
-/** Re-run every section that currently shows `path`: a note was edited in the
- *  in-dashboard popover and its write has already landed on disk. */
-export function refreshDataviewSectionsForPath(path: string): void {
-	pruneDataviewSections();
-	for (const handle of [...dvSectionHandles]) {
-		if (handle.paths.has(path)) handle.reload();
-	}
+	registerSectionRefresh({
+		el: handle.el,
+		channels: ['note-edited'],
+		paths: () => handle.paths,
+		reload: () => handle.reload(),
+	});
 }
 
 /** The notes a result refers to, grouped members included. TASK rows carry the

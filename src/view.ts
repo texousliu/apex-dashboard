@@ -12,7 +12,7 @@ import { refreshSidebarTaskCalendar, renderSidebarCalendar } from './calendar-wi
 import { refreshCalendarSections } from './calendar-section';
 import { refreshOpenDayAgendas } from './calendar-modal';
 import { invalidatePath } from './alltasks-scan';
-import { refreshDataviewSectionsForPath } from './dataview-section';
+import { refreshSectionsForPath } from './section-refresh';
 import { renderSidebarHabitWidget, refreshHabitWidget } from './habit-widget';
 import { renderSidebarExpenseWidget, refreshExpenseWidget } from './expense-widget';
 import { refreshAlbumWidgets, destroyAlbumWidgets } from './album-widget';
@@ -322,7 +322,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		// host so render() rebuilds don't need to re-arm it.
 		this.containerEl.addEventListener('dashboard-calendar-refresh', (() => {
 			this.refreshCalendarSurfaces();
-		}) as EventListener);
+		}));
 		this.startReminderChecker();
 		this.startWeatherRefresh();
 		this.startDayRolloverChecker();
@@ -1059,7 +1059,7 @@ export class DashboardView extends ItemView implements HoverParent {
 				// after resizing" bug). The stamped rects already carry the
 				// drag's live span writes. Read the grid from the tile: cached
 				// tiles may have re-parented since this closure was made.
-				this.commitImmersiveItems(displaceOverlappedBy(next, id, stampedRects((el.parentElement as HTMLElement | null) ?? grid)));
+				this.commitImmersiveItems(displaceOverlappedBy(next, id, stampedRects((el.parentElement) ?? grid)));
 			});
 			if (id.startsWith('widget:')) {
 				attachImmersiveWidgetDelete(el, removeId => void this.removeImmersiveItem(removeId));
@@ -2090,7 +2090,7 @@ export class DashboardView extends ItemView implements HoverParent {
 		// so the card the note was opened from would keep showing the pre-edit
 		// rows until a manual refresh. Re-run the ones that show this note; they
 		// repaint quietly (no blank, no scan spinner).
-		refreshDataviewSectionsForPath(file.path);
+		refreshSectionsForPath(file.path);
 	}
 
 	/** Repaint the task surfaces that keep a snapshot: the sidebar calendar
@@ -2098,7 +2098,7 @@ export class DashboardView extends ItemView implements HoverParent {
 	 *  agenda. All three are no-ops when nothing they show changed. */
 	private refreshCalendarSurfaces(): void {
 		this.refreshSidebarCalendarNow();
-		refreshCalendarSections(this.containerEl as HTMLElement);
+		refreshCalendarSections(this.containerEl);
 		refreshOpenDayAgendas();
 	}
 

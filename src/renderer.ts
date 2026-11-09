@@ -3607,7 +3607,7 @@ export function readTaskPath(row: HTMLElement, fallback: readonly number[]): num
 	try {
 		const parsed: unknown = JSON.parse(raw);
 		if (Array.isArray(parsed) && parsed.length > 0 && parsed.every(v => typeof v === 'number')) {
-			return parsed as number[];
+			return parsed;
 		}
 	} catch {
 		/* malformed stamp — fall through to the render-time path */

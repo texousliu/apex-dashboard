@@ -148,7 +148,11 @@ async function main(): Promise<void> {
 	assert.notEqual(labelAfterPrev, initialLabel, '4: prev navigation moved the view');
 
 	store.set('notes/gamma.md', `# Gamma\n\n- [ ] Gamma 📅 ${prevIso}\n`);
+	// The refresh bus prunes entries whose root is not the document body —
+	// mount the kanban under a stub <body> like the real DOM does.
+	const bodyRoot = new El('body');
 	const kanban = new El('div');
+	bodyRoot.appendChild(kanban);
 	kanban.appendChild(host);
 	assert.equal(refreshCalendarSections(kanban as unknown as HTMLElement), true, '4: refresh found the live section');
 	await flush();

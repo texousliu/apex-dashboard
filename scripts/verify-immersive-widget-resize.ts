@@ -99,7 +99,8 @@ function run(): void {
 	//    parent instead of a captured grid.
 	const view = readFileSync('src/view.ts', 'utf8');
 	assert.ok(view.includes("'.dashboard-imm-resize-h, .dashboard-imm-resize-v, .dashboard-imm-resize-handle'"), '2: stale strips removed before re-attach');
-	assert.ok(view.includes('(el.parentElement as HTMLElement | null) ?? grid'), '2: commit resolves the grid from the tile at commit time');
+	assert.ok(view.includes('(el.parentElement) ?? grid') || view.includes('el.parentElement ?? grid') || view.includes('(el.parentElement as HTMLElement | null) ?? grid'),
+		'2: commit resolves the grid from the tile at commit time');
 	const immersive = readFileSync('src/immersive.ts', 'utf8');
 	assert.ok(!/if \(!tile\.querySelector\('\.dashboard-imm-resize-h'\)\) return;\s*\n\tconst grid = tile\.parentElement;/.test(immersive), '2: grid no longer captured at attach time');
 

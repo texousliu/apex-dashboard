@@ -25,10 +25,10 @@ import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import {
 	collectResultPaths,
-	refreshDataviewSectionsForPath,
 	registerDataviewSection,
 	type DataviewSectionHandle,
 } from '../src/dataview-section';
+import { refreshSectionsForPath } from '../src/section-refresh';
 import type { ResultRow } from '../src/dql/types';
 
 const sectionSrc = readFileSync('src/dataview-section.ts', 'utf8');
@@ -53,11 +53,11 @@ function handleFor(paths: string[], connected = true): DataviewSectionHandle & {
 	registerDataviewSection(daily);
 	registerDataviewSection(other);
 
-	refreshDataviewSectionsForPath('01-日记/2026-11-06.md');
+	refreshSectionsForPath('01-日记/2026-11-06.md');
 	assert.equal(daily.reloads, 1, '1: the card showing the edited note re-runs');
 	assert.equal(other.reloads, 0, '1: a card that does not show it is left alone');
 
-	refreshDataviewSectionsForPath('03-无关/笔记.md');
+	refreshSectionsForPath('03-无关/笔记.md');
 	assert.equal(daily.reloads, 1, '1: an edit to an unrelated note changes nothing');
 	assert.equal(other.reloads, 0, '1: still nothing');
 }
@@ -67,13 +67,13 @@ function handleFor(paths: string[], connected = true): DataviewSectionHandle & {
 {
 	const dead = handleFor(['01-日记/2026-11-07.md'], false);
 	registerDataviewSection(dead);
-	refreshDataviewSectionsForPath('01-日记/2026-11-07.md');
+	refreshSectionsForPath('01-日记/2026-11-07.md');
 	assert.equal(dead.reloads, 0, '2: a section that is no longer in the DOM is never reloaded');
 
 	// Prove it left the registry: bring its element back to life and refresh —
 	// a pruned handle must not resurrect.
 	dead.paths.add('01-日记/2026-11-07.md');
-	refreshDataviewSectionsForPath('01-日记/2026-11-07.md');
+	refreshSectionsForPath('01-日记/2026-11-07.md');
 	assert.equal(dead.reloads, 0, '2: pruning is permanent for that handle');
 }
 
@@ -86,7 +86,7 @@ function handleFor(paths: string[], connected = true): DataviewSectionHandle & {
 	registerDataviewSection({ el, paths: new Set(['05-去重/笔记.md']), reload: () => { first += 1; } });
 	registerDataviewSection({ el, paths: new Set(['05-去重/笔记.md']), reload: () => { second += 1; } });
 
-	refreshDataviewSectionsForPath('05-去重/笔记.md');
+	refreshSectionsForPath('05-去重/笔记.md');
 	assert.equal(first, 0, '3: the superseded handle is replaced, not kept');
 	assert.equal(second, 1, '3: the section re-runs once, not twice');
 }
@@ -144,13 +144,13 @@ function handleFor(paths: string[], connected = true): DataviewSectionHandle & {
 	const idx = viewSrc.indexOf('private onNoteEditedInPopover(file: TFile): void {');
 	assert.ok(idx > 0, '6: the view handles popover edits');
 	const body = viewSrc.slice(idx, idx + 900);
-	assert.ok(body.includes('refreshDataviewSectionsForPath(file.path);'),
+	assert.ok(body.includes('refreshSectionsForPath(file.path);'),
 		'6: it re-runs the cards that show the edited note');
-	assert.ok(body.indexOf('invalidatePath(file.path);') < body.indexOf('refreshDataviewSectionsForPath(file.path);'),
+	assert.ok(body.indexOf('invalidatePath(file.path);') < body.indexOf('refreshSectionsForPath(file.path);'),
 		'6: the scan cache is invalidated FIRST, or the re-run reads the old text');
 
-	assert.ok(viewSrc.includes("import { refreshDataviewSectionsForPath } from './dataview-section';"),
-		'6: the view actually imports it');
+	assert.ok(viewSrc.includes("import { refreshSectionsForPath } from './section-refresh';"),
+		'6: the view actually imports the shared refresh bus');
 }
 
 console.log('dataview edit refresh: all scenarios OK');

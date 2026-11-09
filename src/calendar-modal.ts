@@ -651,7 +651,7 @@ export class DayAgendaModal extends Modal {
 		// so arm the focus flag to keep the add input focused for the next
 		// task — type-Enter-type-Enter without touching the mouse.
 		this.focusAddInput = true;
-		this.onOpen();
+		void this.onOpen();
 	}
 
 	private async toggle(task: VaultTask, nextChecked: boolean): Promise<void> {

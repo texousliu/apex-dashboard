@@ -16,30 +16,16 @@ import { renderMonthGrid, renderWeekTimeGrid, mondayOf } from './calendar-grid';
 import { DayAgendaModal, readCalendarTaskFilter, writeCalendarTaskFilter } from './calendar-modal';
 import { closeDayPreview, scheduleDayPreview } from './calendar-widget';
 import { writeTaskToggle } from './task-toggle';
-
-/** Per-section reload functions keyed by the section's host element, so vault
- *  task changes refresh the grid in place (re-scan + re-render into the live
- *  body) without rebuilding the section — month/week navigation and the active
- *  filter survive. WeakMap: discarded section DOM releases its entry.
- *  Mirrors the sidebar widget's widgetReloaders discipline. */
-const sectionReloaders = new WeakMap<HTMLElement, () => Promise<void>>();
+import { refreshSectionsIn, registerSectionRefresh } from './section-refresh';
 
 /** Re-scan and refresh every live calendar section under `kanban` (or any
  *  container holding them). Returns true when at least one section was
  *  refreshed. The reload itself skips the repaint when the scan shows the
  *  same thing as the grid (see reloadInPlace), so repeated nudges for one
- *  edit cost a cached scan but no flicker. */
+ *  edit cost a cached scan but no flicker. Sections register on the shared
+ *  refresh bus (src/section-refresh.ts) with the 'vault' channel. */
 export function refreshCalendarSections(kanban: HTMLElement): boolean {
-	let any = false;
-	const sections = kanban.querySelectorAll<HTMLElement>('.dashboard-calendar-section');
-	for (let i = 0; i < sections.length; i++) {
-		const el = sections[i]!;
-		const reload = sectionReloaders.get(el);
-		if (!reload) continue;
-		void reload();
-		any = true;
-	}
-	return any;
+	return refreshSectionsIn(kanban, 'vault') > 0;
 }
 
 /**
@@ -294,8 +280,9 @@ export function renderCalendarSection(
 		}
 		syncChrome();
 		renderGrid();
-		// In-place reload entry point for vault task changes.
-		sectionReloaders.set(host, reloadInPlace);
+		// In-place reload entry point for vault task changes, on the shared
+		// refresh bus ('vault' channel: every md change, container-scoped).
+		registerSectionRefresh({ el: host, channels: ['vault'], paths: () => null, reload: reloadInPlace });
 	}
 
 	void initialLoad();
