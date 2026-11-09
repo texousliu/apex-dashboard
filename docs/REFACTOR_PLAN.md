@@ -271,11 +271,18 @@ renderSectionState(el, { kind: 'loading' | 'empty' | 'error'; text: string; hint
 
 **验收**：✅ `renderSection` 只剩注册表派发；✅ `SECTION_TYPE_OPTIONS` 由注册表生成；✅ `view.ts` 路由按规范类型走。
 
-### Phase 3　配置与状态视图（1 天）
+### Phase 3　配置与状态视图（1 天）——进行中
 
 1. `SectionConfigModal<T>` 基类，迁移 22 个弹窗（可分批）。
 2. `renderSectionState` 统一 34 个空态。
 3. `updateSectionConfig` 合并 9 个 sync 方法。
+
+> **进度**：
+> - ✅ 切片 A `renderSectionState` / `configureStateAction`（`src/section/state.ts`）：空/加载/错误态一套标记（`.dashboard-section-state` + `--empty/--loading/--error/--compact`），图标用 `setIcon` 真图标而非 CSS mask；「打开本卡配置」按钮统一 `configureStateAction`，冒泡的事件与 header 齿轮完全相同（含规范 `sectionType`）。
+> - ✅ 已迁移：dataview（空/扫描/错误三态）、web、rss 未配置态、pipeline 未配置、pm 未配置、skills 空态（compact 变体，保留 `grid-column: 1 / -1`）、folder 未配置。
+> - ✅ 旧根类名作为附加类保留（`.dashboard-dataview-empty`、`.dashboard-skillsec-empty` 等），CSS 里布局类（grid span、flex 增长）继续生效；视觉规则集中到 `styles.css` 末尾一个新块。
+> - ✅ 契约测试 `verify-section-state`（形状/顺序/紧凑变体/按钮冒泡/旧类保留/folder 真渲染/旧子类名零残留）。
+> - ⬜ 遗留：`dashboard-library-empty` 这类纯文本空态（约 19 处，含弹窗内的列表空态）与 `dashboard-rss-empty` 尚未迁移；22 个配置弹窗基类、9 个 `updateXxxConfig` 合并未开始。
 
 **验收**：视觉零回归（截图对比关键卡片空态）；`verify-*-config` 全绿。
 

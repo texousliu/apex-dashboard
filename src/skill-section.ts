@@ -18,6 +18,7 @@
 import { App, Menu, Notice, setIcon } from 'obsidian';
 import type { DashboardColumn, DashboardSettings, SkillsSectionConfig, SkillCardButton } from './types';
 import { t } from './i18n';
+import { renderSectionState } from './section/state';
 import {
 	copySkillPath, desktopSkillFs, effectiveSkillGroups, getSkillLibraryStore, groupSkillEntries,
 	resolveSkillGroup, resolveSkillStores, revealSkillFolder, skillStoreAgent, skillStoreBadge,
@@ -409,7 +410,7 @@ export function renderSkillSection(
 			renderIntoGrid(grid, members);
 		}
 		if (buckets.length === 0) {
-			container.createDiv({ cls: 'dashboard-skillsec-empty', text: emptyText(filtered.length) });
+			renderSectionState(container, { text: emptyText(filtered.length), legacyClass: 'dashboard-skillsec-empty', compact: true });
 			return;
 		}
 		// Pagination under the ungrouped bucket only, when it has pages.
@@ -440,7 +441,7 @@ export function renderSkillSection(
 			wireColumnDropTarget(col, bucket.key);
 		}
 		if (buckets.length === 0) {
-			container.createDiv({ cls: 'dashboard-skillsec-empty', text: emptyText(filtered.length) });
+			renderSectionState(container, { text: emptyText(filtered.length), legacyClass: 'dashboard-skillsec-empty', compact: true });
 		}
 	}
 
@@ -491,7 +492,7 @@ export function renderSkillSection(
 
 	function renderEmptyIfNeeded(grid: HTMLElement, filteredCount: number, totalCount: number): void {
 		if (filteredCount > 0) return;
-		grid.createDiv({ cls: 'dashboard-skillsec-empty', text: emptyText(totalCount) });
+		renderSectionState(grid, { text: emptyText(totalCount), legacyClass: 'dashboard-skillsec-empty', compact: true });
 	}
 
 	function emptyText(totalCount: number): string {

@@ -3,6 +3,7 @@ import { renderLibrarySection } from '../../library-section';
 import { renderMediaSection } from '../../media-section';
 import { getMediaTagService } from '../../media-tags';
 import { registerSection } from '../registry';
+import { renderSectionState } from '../state';
 
 /** Library / folder: note cards with the section's own toolbar. A folder
  *  section with no folder set would list the entire vault (the foldaer filter
@@ -28,7 +29,11 @@ registerSection({
 	},
 	render(ctx) {
 		if (folderUnconfigured(ctx)) {
-			ctx.el.createDiv({ cls: 'dashboard-library-empty dashboard-folder-empty', text: t('folder.empty') });
+			renderSectionState(ctx.el, {
+				icon: 'folder',
+				text: t('folder.empty'),
+				legacyClass: 'dashboard-library-empty dashboard-folder-empty',
+			});
 			return;
 		}
 		renderLibrarySection(ctx.el, ctx.column, ctx.app, (config) => {

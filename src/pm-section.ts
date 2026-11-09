@@ -2,6 +2,7 @@ import { renderPmGantt } from './pm-gantt-section';
 import { App, Notice, setIcon } from 'obsidian';
 import type { DashboardColumn } from './types';
 import { t } from './i18n';
+import { configureStateAction, renderSectionState } from './section/state';
 import { captureScrollStates, restoreScrollStates } from './scroll-preserve';
 import {
 	collectPmProjects, orderPmProjects, pmField, pmGroupName, pmIncome, pmCycleText, pmKeyDate, isKeyDateOverdue,
@@ -37,12 +38,18 @@ export function renderPmSection(
 ): void {
 	const cfg = column.pmConfig;
 	if (!cfg || !cfg.rootFolder.trim()) {
-		const empty = el.createDiv({ cls: 'dashboard-pmsec-empty' });
-		empty.createDiv({ cls: 'dashboard-pipeline-empty-title', text: t('pm.emptyTitle') });
-		empty.createDiv({ cls: 'dashboard-pipeline-empty-hint', text: t('pm.emptyHint') });
-		const btn = empty.createEl('button', { cls: 'dashboard-modal-btn dashboard-modal-btn--confirm', text: t('pm.configure') });
-		btn.addEventListener('click', () => {
-			el.dispatchEvent(new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true }));
+		renderSectionState(el, {
+			text: t('pm.emptyTitle'),
+			strongText: true,
+			hint: t('pm.emptyHint'),
+			legacyClass: 'dashboard-pmsec-empty',
+			action: configureStateAction({
+				label: t('pm.configure'),
+				from: el,
+				columnName: column.name,
+				sectionType: 'pm',
+				cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
+			}),
 		});
 		return;
 	}

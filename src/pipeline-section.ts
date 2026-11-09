@@ -33,6 +33,7 @@ import { PipelineDueModal } from './pipeline-due-modal';
 import { showPromptDialog } from './prompt-dialog';
 import { showConfirmDialog } from './confirm-dialog';
 import { startGuardedDrag } from './drag-guard';
+import { configureStateAction, renderSectionState } from './section/state';
 
 /**
  * Pipeline board: one column per workflow stage, one card per note, grouped
@@ -206,12 +207,18 @@ function renderFilterRail(wrap: HTMLElement, columnName: string, dims: readonly 
 }
 
 function renderUnconfigured(body: HTMLElement, column: DashboardColumn): void {
-	const empty = body.createDiv({ cls: 'dashboard-pipeline-empty' });
-	empty.createDiv({ cls: 'dashboard-pipeline-empty-title', text: t('pipeline.emptyTitle') });
-	empty.createDiv({ cls: 'dashboard-pipeline-empty-hint', text: t('pipeline.emptyHint') });
-	const btn = empty.createEl('button', { cls: 'dashboard-modal-btn dashboard-modal-btn--confirm', text: t('pipeline.configure') });
-	btn.addEventListener('click', () => {
-		body.dispatchEvent(new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true }));
+	renderSectionState(body, {
+		text: t('pipeline.emptyTitle'),
+		strongText: true,
+		hint: t('pipeline.emptyHint'),
+		legacyClass: 'dashboard-pipeline-empty',
+		action: configureStateAction({
+			label: t('pipeline.configure'),
+			from: body,
+			columnName: column.name,
+			sectionType: 'pipeline',
+			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
+		}),
 	});
 }
 

@@ -22385,50 +22385,9 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	text-overflow: ellipsis;
 }
 
-/* Empty + error + scanning states */
-.dashboard-dataview-empty,
-.dashboard-dataview-error,
-.dashboard-dataview-scanning {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	gap: 8px;
-	padding: 28px 16px;
-	text-align: center;
-	color: var(--db-text-muted, var(--text-muted));
-	font-size: 0.8125em;
-}
-.dashboard-dataview-empty-icon {
-	width: 32px;
-	height: 32px;
-	opacity: 0.3;
-	background: currentColor;
-	-webkit-mask: var(--icon-search) center / contain no-repeat;
-	mask: var(--icon-search) center / contain no-repeat;
-}
-.dashboard-dataview-empty-hint {
-	font-size: 0.6875em;
-	opacity: 0.7;
-}
-.dashboard-dataview-error {
-	color: var(--text-error, #e06c75);
-}
-.dashboard-dataview-error-icon svg {
-	width: 22px;
-	height: 22px;
-}
-.dashboard-dataview-error-text {
-	max-width: 360px;
-	word-break: break-word;
-}
-.dashboard-dataview-spinner {
-	animation: dashboard-dataview-spin 0.9s linear infinite;
-}
-.dashboard-dataview-spinner svg {
-	width: 18px;
-	height: 18px;
-}
+/* Empty + error + scanning states (markup: src/section/state.ts; the legacy
+   root classes ride along only for placement, the look lives in the section
+   state block at the end of this file). */
 @keyframes dashboard-dataview-spin {
 	from { transform: rotate(0deg); }
 	to { transform: rotate(360deg); }
@@ -22476,26 +22435,11 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	background: var(--background-primary);
 }
 
-/* Configure-me guide state (no URL yet). */
-.dashboard-web-empty {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 8px;
-	padding: 32px 12px;
-	color: var(--db-text-muted, var(--text-muted));
-}
-.dashboard-web-empty-icon svg,
+/* Configure-me guide state (no URL yet) is the shared section state block
+   (.dashboard-web-empty rides along for placement). */
 .dashboard-web-fallback-icon svg {
 	width: 28px;
 	height: 28px;
-}
-.dashboard-web-empty-text {
-	font-size: 0.95em;
-}
-.dashboard-web-empty-hint {
-	font-size: 0.85em;
-	opacity: 0.75;
 }
 
 /* Fallback card: site refused framing (mobile) or page failed to load. */
@@ -24611,34 +24555,7 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	text-overflow: ellipsis;
 }
 
-/* --- Unconfigured state --- */
-.dashboard-rss-empty-config {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 6px;
-	padding: 26px 12px;
-}
-
-.dashboard-rss-empty-config-icon {
-	color: var(--db-text-faint);
-}
-
-.dashboard-rss-empty-config-icon svg {
-	width: 28px;
-	height: 28px;
-}
-
-.dashboard-rss-empty-config-text {
-	font-size: 13px;
-	color: var(--db-text-muted);
-}
-
-.dashboard-rss-empty-config-hint {
-	font-size: 11px;
-	color: var(--db-text-faint);
-	margin-bottom: 8px;
-}
+/* --- Unconfigured state: the shared section state block --- */
 
 /* --- Reader modal --- */
 .modal-container.dashboard-rss-reader .modal {
@@ -25312,12 +25229,10 @@ body.is-mobile .dashboard-media-item .dashboard-media-tagbtn { opacity: 1; }
 	scrollbar-color: color-mix(in srgb, var(--db-accent, var(--interactive-accent)) 18%, transparent) transparent;
 }
 
+/* Placement only (span the grid) — the look is the shared section state
+   block's --compact variant. */
 .dashboard-skillsec-empty {
 	grid-column: 1 / -1;
-	padding: 18px 10px;
-	text-align: center;
-	font-size: 12px;
-	color: var(--db-text-faint);
 }
 
 .dashboard-skillsec-card {
@@ -26364,28 +26279,11 @@ button.dashboard-pipeline-skill-btn--reordering {
 }
 
 /* Unconfigured state */
+/* Placement only — the look is the shared section state block. */
 .dashboard-pipeline-empty {
 	flex: 1;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	gap: 8px;
-	padding: 28px 12px;
 }
 
-.dashboard-pipeline-empty-title {
-	font-size: 0.85em;
-	font-weight: 600;
-	color: var(--db-text, var(--text-normal));
-}
-
-.dashboard-pipeline-empty-hint {
-	font-size: 0.72em;
-	color: var(--db-text-muted, var(--text-muted));
-	text-align: center;
-	max-width: 320px;
-}
 
 /* --- Config modal rows --- */
 
@@ -28623,10 +28521,6 @@ button.dashboard-capturebar-glyph:hover {
 	height: 14px;
 }
 
-.dashboard-pmsec-empty {
-	padding: 18px 8px;
-	text-align: center;
-}
 
 /* Board modal (dashboard-modal skeleton carries the chrome; these are the
    pm-specific bits). The new-project form keeps a capped scrolling body;
@@ -31524,4 +31418,56 @@ body.apex-tour-active .dashboard-sidebar-pin-btn {
 .apex-tour-btn--ghost:hover {
 	color: var(--text-normal);
 	background: transparent;
+}
+
+/* --- Section states (empty / loading / error) --------------------------------
+   One markup for every section, rendered by src/section/state.ts. Pages that
+   migrated keep their old root class alongside (placement rules such as
+   `.dashboard-skillsec-empty { grid-column: 1 / -1 }` still apply); everything
+   visual comes from here. */
+.dashboard-section-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 28px 16px;
+	text-align: center;
+	color: var(--db-text-muted, var(--text-muted));
+	font-size: 0.8125em;
+}
+.dashboard-section-state-icon {
+	display: flex;
+	opacity: 0.4;
+}
+.dashboard-section-state-icon svg {
+	width: 26px;
+	height: 26px;
+}
+.dashboard-section-state-text {
+	font-size: 0.95em;
+	overflow-wrap: anywhere;
+}
+.dashboard-section-state--strong .dashboard-section-state-text {
+	font-weight: 600;
+	color: var(--db-text, var(--text-normal));
+}
+.dashboard-section-state-hint {
+	font-size: 0.78em;
+	opacity: 0.72;
+	max-width: 34em;
+}
+.dashboard-section-state-action {
+	margin-top: 2px;
+}
+.dashboard-section-state--loading .dashboard-section-state-icon {
+	animation: dashboard-dataview-spin 0.9s linear infinite;
+}
+.dashboard-section-state--error {
+	color: var(--text-error, #e06c75);
+}
+.dashboard-section-state--compact {
+	gap: 4px;
+	padding: 18px 10px;
+	font-size: 12px;
 }

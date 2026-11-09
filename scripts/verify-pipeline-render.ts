@@ -198,7 +198,7 @@ async function main(): Promise<void> {
 	const host2 = new El('div');
 	renderPipelineSection(host2 as unknown as HTMLElement, pipelineColumn(), app, callbacks, null);
 	assert.equal(findByClass(host2, 'dashboard-pipeline-empty').length, 1);
-	assert.equal(findByClass(host2, 'dashboard-pipeline-empty-hint').length, 1);
+	assert.equal(findByClass(host2, 'dashboard-section-state-hint').length, 1);
 	const emptyEl = findByClass(host2, 'dashboard-pipeline-empty')[0]!;
 	assert.ok(findTag(emptyEl, 'button').length > 0, 'configure button present');
 	// Double-click the card title -> inline input -> Enter renames the file.

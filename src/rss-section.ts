@@ -11,6 +11,7 @@ import { App, Notice, setIcon } from 'obsidian';
 import type { DashboardColumn } from './types';
 import { t } from './i18n';
 import { getRssStore, type RssStore } from './rss-store';
+import { configureStateAction, renderSectionState } from './section/state';
 import { feedKey, refreshFeeds, resolveArticleMarkdown, type RssTextFetcher } from './rss-service';
 import type { RssItem } from './rss-xml';
 import { RssArticleModal } from './rss-article-modal';
@@ -135,18 +136,18 @@ export function renderRssSection(
 
 	function renderEmptyConfig(): void {
 		content.empty();
-		const wrap = content.createDiv({ cls: 'dashboard-rss-empty-config' });
-		const icon = wrap.createDiv({ cls: 'dashboard-rss-empty-config-icon' });
-		setIcon(icon, 'rss');
-		wrap.createDiv({ cls: 'dashboard-rss-empty-config-text', text: t('rss.noFeeds') });
-		wrap.createDiv({ cls: 'dashboard-rss-empty-config-hint', text: t('rss.configureHint') });
-		const configure = wrap.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
-			text: t('rss.configure'),
-			attr: { type: 'button' },
-		});
-		configure.addEventListener('click', () => {
-			el.dispatchEvent(new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true }));
+		renderSectionState(content, {
+			icon: 'rss',
+			text: t('rss.noFeeds'),
+			hint: t('rss.configureHint'),
+			legacyClass: 'dashboard-rss-empty-config',
+			action: configureStateAction({
+				label: t('rss.configure'),
+				from: el,
+				columnName: column.name,
+				sectionType: 'rss',
+				cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
+			}),
 		});
 	}
 

@@ -1,6 +1,7 @@
 import { Notice, Platform, setIcon } from 'obsidian';
 import type { DashboardColumn } from './types';
 import { t } from './i18n';
+import { configureStateAction, renderSectionState } from './section/state';
 import {
 	clearPrecheckCache,
 	getCachedVerdict,
@@ -133,20 +134,20 @@ export function renderWebSection(
 	function renderEmpty(): void {
 		content.empty();
 		mounted = 'none';
-		const wrap = content.createDiv({ cls: 'dashboard-web-empty' });
-		const icon = wrap.createDiv({ cls: 'dashboard-web-empty-icon' });
-		setIcon(icon, 'globe');
-		wrap.createDiv({ cls: 'dashboard-web-empty-text', text: t('web.emptyUrl') });
-		wrap.createDiv({ cls: 'dashboard-web-empty-hint', text: t('web.configureHint') });
-		const configure = wrap.createEl('button', {
-			cls: 'dashboard-web-fallback-btn',
-			text: t('web.configure'),
-			attr: { type: 'button' },
-		});
-		configure.addEventListener('click', () => {
-			// Same routing event as the header gear — view.ts's delegation opens
-			// the config modal, so no callback threading is needed here.
-			el.dispatchEvent(new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true }));
+		// Same routing event as the header gear — view.ts's delegation opens the
+		// config modal, so no callback threading is needed here.
+		renderSectionState(content, {
+			icon: 'globe',
+			text: t('web.emptyUrl'),
+			hint: t('web.configureHint'),
+			legacyClass: 'dashboard-web-empty',
+			action: configureStateAction({
+				label: t('web.configure'),
+				from: el,
+				columnName: column.name,
+				sectionType: 'web',
+				cls: 'dashboard-web-fallback-btn',
+			}),
 		});
 	}
 

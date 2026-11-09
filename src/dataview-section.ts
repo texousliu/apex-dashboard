@@ -7,6 +7,7 @@ import { attachNoteHover } from './hover-preview';
 import { attachNoteJump, type NoteOpeners } from './note-jump';
 import { writeTaskToggle, type TaskToggleOutcome } from './task-toggle';
 import { registerSectionRefresh } from './section-refresh';
+import { renderSectionState } from './section/state';
 import { buildPages, invalidatePath } from './dql/page-builder';
 import { executeDql } from './dql';
 import { coerceNumber, dqlCompare, formatDate, formatValue, kindOf, makeObject } from './dql/values';
@@ -176,26 +177,30 @@ export function renderDataviewSection(
 /* ----------------------------- states ----------------------------- */
 
 function renderEmptyState(container: HTMLElement, key: string, hint: boolean | string = false): void {
-	const wrap = container.createDiv({ cls: 'dashboard-dataview-empty' });
-	wrap.createDiv({ cls: 'dashboard-dataview-empty-icon' });
-	wrap.createDiv({ cls: 'dashboard-dataview-empty-text', text: t(key) });
-	if (hint) {
-		wrap.createDiv({ cls: 'dashboard-dataview-empty-hint', text: t(typeof hint === 'string' ? hint : 'dataview.configureHint') });
-	}
+	renderSectionState(container, {
+		icon: 'search',
+		text: t(key),
+		hint: hint ? t(typeof hint === 'string' ? hint : 'dataview.configureHint') : undefined,
+		legacyClass: 'dashboard-dataview-empty',
+	});
 }
 
 function renderScanningState(container: HTMLElement): void {
-	const wrap = container.createDiv({ cls: 'dashboard-dataview-scanning' });
-	const spinner = wrap.createDiv({ cls: 'dashboard-dataview-spinner' });
-	setIcon(spinner, 'loader-circle');
-	wrap.createSpan({ text: t('dataview.scanning') });
+	renderSectionState(container, {
+		kind: 'loading',
+		icon: 'loader-circle',
+		text: t('dataview.scanning'),
+		legacyClass: 'dashboard-dataview-scanning',
+	});
 }
 
 function renderErrorState(container: HTMLElement, message: string): void {
-	const wrap = container.createDiv({ cls: 'dashboard-dataview-error' });
-	const icon = wrap.createDiv({ cls: 'dashboard-dataview-error-icon' });
-	setIcon(icon, 'alert-triangle');
-	wrap.createDiv({ cls: 'dashboard-dataview-error-text', text: t('dataview.parseError', { message }) });
+	renderSectionState(container, {
+		kind: 'error',
+		icon: 'alert-triangle',
+		text: t('dataview.parseError', { message }),
+		legacyClass: 'dashboard-dataview-error',
+	});
 }
 
 /* ----------------------------- result dispatch ----------------------------- */
