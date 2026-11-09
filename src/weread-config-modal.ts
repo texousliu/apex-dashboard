@@ -1,4 +1,5 @@
-import { App, Modal, setIcon } from 'obsidian';
+import { setIcon } from 'obsidian';
+import type { App } from 'obsidian';
 import type { WereadConfig, WereadStatItem, WereadWidget } from './types';
 import type {
 	WereadContentType,
@@ -8,7 +9,7 @@ import type {
 	WereadRecency,
 } from './weread-shelf-model';
 import { t } from './i18n';
-import { applyModalTheme } from './modal-theme';
+import { SectionConfigModal } from './section/config-modal';
 import { ALL_STAT_ITEMS, DEFAULT_STAT_ITEMS, STAT_ITEM_LABEL_KEYS, normalizeStatItems } from './weread-stats';
 
 const VIEW_OPTIONS: Array<{ value: WereadWidget['view']; labelKey: string }> = [
@@ -51,7 +52,7 @@ const GROUP_OPTIONS: Array<{ value: WereadGroupBy; labelKey: string }> = [
  * rendered top-to-bottom in the section. Shelf widgets expose four stable
  * facets from the official API plus a matching visual grouping selector.
  */
-export class WereadConfigModal extends Modal {
+export class WereadConfigModal extends SectionConfigModal {
 	private widgets: WereadWidget[];
 	private readonly onSave: (config: WereadConfig) => void;
 
@@ -64,20 +65,11 @@ export class WereadConfigModal extends Modal {
 			.map(w => ({ ...w }));
 	}
 
-	onOpen(): void {
-		const { contentEl, containerEl } = this;
-		contentEl.empty();
-		contentEl.addClass('dashboard-library-config-modal');
-		containerEl.addClass('modal--dashboard');
-		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		applyModalTheme(containerEl);
+	protected title(): string {
+		return t('weread.configure');
+	}
 
-		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
-
-		const header = container.createDiv({ cls: 'dashboard-modal-header' });
-		header.createDiv({ cls: 'dashboard-modal-title', text: t('weread.configure') });
-
-		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+	protected renderBody(body: HTMLElement): void {
 		body.createDiv({ cls: 'dashboard-library-config-section-title', text: t('weread.widgetsLabel') });
 
 		const list = body.createDiv({ cls: 'dashboard-weread-cfg-list' });
@@ -168,20 +160,12 @@ export class WereadConfigModal extends Modal {
 		render();
 
 		body.createDiv({ cls: 'dashboard-library-config-hint', text: t('weread.configHint') });
+	}
 
-		// Footer
-		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
-			text: t('common.cancel'),
-		}).addEventListener('click', () => this.close());
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
-			text: t('common.save'),
-		}).addEventListener('click', () => {
-			this.onSave({ widgets: this.widgets.length > 0 ? this.widgets : [{ id: 'w1', view: 'shelf', groupBy: 'readingState' }] });
-			this.close();
-		});
+	protected submit(): void {
+		// Never persist an empty widget list — the section would render nothing.
+		this.onSave({ widgets: this.widgets.length > 0 ? this.widgets : [{ id: 'w1', view: 'shelf', groupBy: 'readingState' }] });
+		this.close();
 	}
 
 	private swap(a: number, b: number, rerender: () => void): void {
@@ -192,10 +176,6 @@ export class WereadConfigModal extends Modal {
 		next[b] = tmp;
 		this.widgets = next;
 		rerender();
-	}
-
-	onClose(): void {
-		this.contentEl.empty();
 	}
 }
 

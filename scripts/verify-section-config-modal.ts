@@ -129,12 +129,14 @@ class ProbeModal extends SectionConfigModal {
 	class WideModal extends ProbeModal {
 		protected sizeClass(): string { return 'dashboard-modal--wide'; }
 		protected contentClass(): string { return 'dashboard-library-config-modal probe-wide'; }
+		protected frameClass(): string { return 'probe-frame'; }
 		protected saveLabel(): string { return '应用'; }
 	}
 	const modal = new WideModal(app);
 	modal.onOpen();
 	const content = modal.contentEl as unknown as El;
 	assert.equal(findByClass(content, 'dashboard-modal--wide').length, 1, '4: size variant applies');
+	assert.equal(findByClass(content, 'probe-frame').length, 1, '4: extra frame class applies');
 	assert.ok(content.hasClass('probe-wide'), '4: extra content class applies');
 	const confirm = findByClass(content, 'dashboard-modal-btn--confirm')[0]!;
 	assert.equal(confirm.textContent, '应用', '4: save label overridable');
@@ -162,20 +164,44 @@ const SHELL_MARKERS = [
 	"applyModalTheme(containerEl)",
 ];
 
-for (const file of [
-	'src/web-config-modal.ts',
-	'src/rss-config-modal.ts',
-	'src/media-config-modal.ts',
-	'src/dataview-config-modal.ts',
-	'src/notes-config-modal.ts',
-	'src/library-config-modal.ts',
-]) {
+/**
+ * Files that must ride the shared shell. Every modal in these files — config
+ * forms and the pickers that stack over them (folder multi-select, command
+ * search) — goes through the base class.
+ */
+const MIGRATED = [
+	{ file: 'src/web-config-modal.ts' },
+	{ file: 'src/rss-config-modal.ts' },
+	{ file: 'src/media-config-modal.ts' },
+	{ file: 'src/dataview-config-modal.ts' },
+	{ file: 'src/notes-config-modal.ts' },
+	{ file: 'src/library-config-modal.ts' },
+	{ file: 'src/folder-config-modal.ts' },
+	{ file: 'src/material-config-modal.ts' },
+	{ file: 'src/pipeline-config-modal.ts' },
+	{ file: 'src/pm-config-modal.ts' },
+	{ file: 'src/weread-config-modal.ts' },
+	{ file: 'src/skill-section-config-modal.ts' },
+	{ file: 'src/skill-create-config-modal.ts' },
+	{ file: 'src/skill-widget-config-modal.ts' },
+	{ file: 'src/task-card-config-modal.ts' },
+	{ file: 'src/tracker-config-modal.ts' },
+	{ file: 'src/weather-config-modal.ts' },
+	{ file: 'src/quick-note-config-modal.ts' },
+];
+
+for (const { file } of MIGRATED) {
 	const src = readFileSync(file, 'utf8');
 	assert.ok(src.includes('extends SectionConfigModal'), `5: ${file} uses the shared shell`);
 	for (const marker of SHELL_MARKERS) {
 		assert.ok(!src.includes(marker), `5: ${file} no longer hand-writes ${marker}`);
 	}
-	assert.ok(!src.includes('onClose(): void'), `5: ${file} inherits the close cleanup`);
+	assert.ok(!src.includes("createDiv({ cls: 'dashboard-modal-footer' })"), `5: ${file} does not build its own footer`);
+	// Either inherit the cleanup outright, or override it for real teardown
+	// (the weather modal cancels its debounce) and delegate to the base.
+	if (src.includes('onClose(): void')) {
+		assert.ok(src.includes('super.onClose()'), `5: ${file} delegates cleanup to the base`);
+	}
 }
 
 console.log('section config modal: all scenarios OK');

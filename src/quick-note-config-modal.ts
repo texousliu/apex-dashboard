@@ -1,10 +1,11 @@
-import { App, Modal, Notice, setIcon } from 'obsidian';
+import { Notice, setIcon } from 'obsidian';
+import type { App } from 'obsidian';
 import type DashboardPlugin from './main';
 import type { PinnedNote, QuickCommand, QuickNotePreset, SkillShortcut } from './types';
 import { IconPickerModal } from './icon-picker-modal';
 import type { AppWithCommands } from './obsidian-internal';
 import { t } from './i18n';
-import { applyModalTheme } from './modal-theme';
+import { SectionConfigModal } from './section/config-modal';
 import { attachPathPicker, type PathPickerMode } from './path-picker-modal';
 import { agentTargets, agentPickerOption } from './agent-dispatch';
 import { attachSkillPicker, clearRememberedSkills, rememberSkillNames } from './skill-registry';
@@ -16,7 +17,7 @@ import { getSkillLibraryStore } from './skill-store';
  * "today" toggles. All edits live in local copies until Save, which commits to
  * global settings, persists, and refreshes open dashboards.
  */
-export class QuickNoteConfigModal extends Modal {
+export class QuickNoteConfigModal extends SectionConfigModal {
 	private plugin: DashboardPlugin;
 	private presets: QuickNotePreset[];
 	private pinned: PinnedNote[];
@@ -53,29 +54,15 @@ export class QuickNoteConfigModal extends Modal {
 		this.skillSourceFolders = s.skillSourceFolders ?? '';
 	}
 
-	onOpen(): void {
-		const { contentEl, containerEl } = this;
-		contentEl.empty();
-		contentEl.addClass('dashboard-library-config-modal');
-		containerEl.addClass('modal--dashboard');
-		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		applyModalTheme(containerEl);
-		this.renderBody();
+	protected frameClass(): string {
+		return 'dashboard-quicknote-config';
 	}
 
-	onClose(): void {
-		this.contentEl.empty();
+	protected title(): string {
+		return t('quickNote.configTitle');
 	}
 
-	private renderBody(): void {
-		const { contentEl } = this;
-		contentEl.empty();
-		const container = contentEl.createDiv({
-			cls: 'dashboard-modal dashboard-modal--compact dashboard-quicknote-config',
-		});
-		const header = container.createDiv({ cls: 'dashboard-modal-header' });
-		header.createDiv({ cls: 'dashboard-modal-title', text: t('quickNote.configTitle') });
-		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+	protected renderBody(body: HTMLElement): void {
 		const form = body.createDiv({ cls: 'dashboard-modal-form' });
 		// Section order mirrors the workspace strip (after the leading "today"
 		// chip): commands, pinned, template-create presets, skills; capture and
@@ -86,7 +73,17 @@ export class QuickNoteConfigModal extends Modal {
 		this.renderSkills(form);
 		this.renderCapture(form);
 		this.renderDaily(form);
-		this.renderActions(container);
+	}
+
+	/** Add / delete / reorder rebuilds the fields in place — the shell (and
+	 *  the Save button the user is about to press) stays put. */
+	private repaint(): void {
+		this.body.empty();
+		this.renderBody(this.body);
+	}
+
+	protected submit(): void {
+		void this.save();
 	}
 
 	// ── Presets ────────────────────────────────────────────────────────────
@@ -101,7 +98,7 @@ export class QuickNoteConfigModal extends Modal {
 				id: uid(), label: '', icon: 'file-plus',
 				templatePath: '', folder: '', filename: '{{date:YYYY-MM-DD}}',
 			}];
-			this.renderBody();
+			this.repaint();
 		});
 	}
 
@@ -112,11 +109,11 @@ export class QuickNoteConfigModal extends Modal {
 		const top = card.createDiv({ cls: 'dashboard-quicknote-cfg-top' });
 		this.wireDrag(top, card, i, 'preset', (from, to) => {
 			this.presets = this.reorderArray(this.presets, from, to);
-			this.renderBody();
+			this.repaint();
 		});
 		this.iconPickBtn(top, preset.icon || 'file-plus', (name) => this.updatePreset(i, { icon: name }));
 		this.textInput(top, preset.label, '', { cls: 'dashboard-quicknote-cfg-label', placeholder: t('quickNote.fieldLabel') }, (v) => this.updatePreset(i, { label: v }));
-		this.delBtn(top, () => { this.presets = this.presets.filter((_, idx) => idx !== i); this.renderBody(); });
+		this.delBtn(top, () => { this.presets = this.presets.filter((_, idx) => idx !== i); this.repaint(); });
 
 		this.pathTextInput(card, preset.templatePath, { placeholder: t('quickNote.fieldTemplatePh'), mode: 'file' }, (v) => this.updatePreset(i, { templatePath: v }));
 		this.pathTextInput(card, preset.folder, { placeholder: t('quickNote.fieldFolderPh'), mode: 'folder' }, (v) => this.updatePreset(i, { folder: v }));
@@ -136,7 +133,7 @@ export class QuickNoteConfigModal extends Modal {
 
 		this.addBtn(section, t('quickNote.addPinned'), () => {
 			this.pinned = [...this.pinned, { id: uid(), label: '', icon: 'pin', path: '' }];
-			this.renderBody();
+			this.repaint();
 		});
 	}
 
@@ -146,11 +143,11 @@ export class QuickNoteConfigModal extends Modal {
 		const top = card.createDiv({ cls: 'dashboard-quicknote-cfg-top' });
 		this.wireDrag(top, card, i, 'pinned', (from, to) => {
 			this.pinned = this.reorderArray(this.pinned, from, to);
-			this.renderBody();
+			this.repaint();
 		});
 		this.iconPickBtn(top, note.icon || 'pin', (name) => this.updatePinned(i, { icon: name }));
 		this.textInput(top, note.label, '', { cls: 'dashboard-quicknote-cfg-label', placeholder: t('quickNote.fieldLabel') }, (v) => this.updatePinned(i, { label: v }));
-		this.delBtn(top, () => { this.pinned = this.pinned.filter((_, idx) => idx !== i); this.renderBody(); });
+		this.delBtn(top, () => { this.pinned = this.pinned.filter((_, idx) => idx !== i); this.repaint(); });
 		this.pathTextInput(card, note.path, { placeholder: t('quickNote.fieldPathPh'), mode: 'file' }, (v) => this.updatePinned(i, { path: v }));
 	}
 
@@ -175,7 +172,7 @@ export class QuickNoteConfigModal extends Modal {
 				// "add this" action, and the chip should survive closing the modal
 				// without Save (e.g. via Esc or the X).
 				void this.commitCommands();
-				this.renderBody();
+				this.repaint();
 			}).open();
 		});
 	}
@@ -187,14 +184,14 @@ export class QuickNoteConfigModal extends Modal {
 		this.wireDrag(top, card, i, 'command', (from, to) => {
 			this.commands = this.reorderArray(this.commands, from, to);
 			void this.commitCommands();
-			this.renderBody();
+			this.repaint();
 		});
 		this.iconPickBtn(top, cmd.icon || 'terminal', (name) => this.updateCommand(i, { icon: name }));
 		this.textInput(top, cmd.label, '', { cls: 'dashboard-quicknote-cfg-label', placeholder: t('quickNote.fieldLabel') }, (v) => this.updateCommand(i, { label: v }));
 		this.delBtn(top, () => {
 			this.commands = this.commands.filter((_, idx) => idx !== i);
 			void this.commitCommands();
-			this.renderBody();
+			this.repaint();
 		});
 		// Read-only command id under the top bar (picked via search, not typed).
 		card.createDiv({ cls: 'dashboard-quicknote-cfg-cmd-id', text: cmd.commandId });
@@ -223,11 +220,11 @@ export class QuickNoteConfigModal extends Modal {
 			const top = card.createDiv({ cls: 'dashboard-quicknote-cfg-top' });
 			this.wireDrag(top, card, i, 'skill', (from, to) => {
 				this.skills = this.reorderArray(this.skills, from, to);
-				this.renderBody();
+				this.repaint();
 			});
 			this.iconPickBtn(top, skill.icon || 'sparkles', icon => this.updateSkill(i, { icon }));
 			this.textInput(top, skill.label, '', { cls: 'dashboard-quicknote-cfg-label', placeholder: t('quickNote.fieldLabel') }, label => this.updateSkill(i, { label }));
-			this.delBtn(top, () => { this.skills = this.skills.filter((_, idx) => idx !== i); this.renderBody(); });
+			this.delBtn(top, () => { this.skills = this.skills.filter((_, idx) => idx !== i); this.repaint(); });
 			// Target label rides its select on one row (used to stack above it).
 			const targetRow = card.createDiv({ cls: 'dashboard-quicknote-cfg-field-row' });
 			targetRow.createSpan({ cls: 'dashboard-quicknote-cfg-cmd-id', text: t('quickNote.skillTarget') });
@@ -262,7 +259,7 @@ export class QuickNoteConfigModal extends Modal {
 				id: uid(), label: '', icon: 'sparkles', target: 'claudian',
 				skillName: '', promptTemplate: '',
 			}];
-			this.renderBody();
+			this.repaint();
 		});
 		// Discovery source + registry maintenance for the pickers above.
 		const folderRow = section.createDiv({ cls: 'dashboard-quicknote-cfg-path-row' });
@@ -279,7 +276,7 @@ export class QuickNoteConfigModal extends Modal {
 				await clearRememberedSkills(this.plugin, 'copilot');
 				await clearRememberedSkills(this.plugin, 'codex');
 				new Notice(t('skillPicker.cleared'));
-				this.renderBody();
+				this.repaint();
 			})();
 		});
 	}
@@ -357,18 +354,6 @@ export class QuickNoteConfigModal extends Modal {
 	}
 
 	// ── Actions ────────────────────────────────────────────────────────────
-
-	private renderActions(container: HTMLElement): void {
-		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
-			text: t('common.cancel'),
-		}).addEventListener('click', () => this.close());
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
-			text: t('common.save'),
-		}).addEventListener('click', () => { void this.save(); });
-	}
 
 	private async save(): Promise<void> {
 		if (this.skills.some(skill => skill.label.trim() && !/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(skill.skillName.trim()))) {
@@ -574,7 +559,7 @@ function uid(): string {
  * are edited inline in the config row afterwards. Stacks over the config
  * modal the same way IconPickerModal does.
  */
-class CommandSearchModal extends Modal {
+class CommandSearchModal extends SectionConfigModal {
 	private readonly onPick: (entry: { id: string; name: string }) => void;
 
 	constructor(app: App, onPick: (entry: { id: string; name: string }) => void) {
@@ -582,19 +567,22 @@ class CommandSearchModal extends Modal {
 		this.onPick = onPick;
 	}
 
-	onOpen(): void {
-		const { contentEl, containerEl } = this;
-		contentEl.empty();
-		contentEl.addClass('dashboard-library-config-modal');
-		containerEl.addClass('modal--dashboard');
-		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		applyModalTheme(containerEl);
+	protected title(): string {
+		return t('quickNote.commandSearchTitle');
+	}
 
-		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
-		const header = container.createDiv({ cls: 'dashboard-modal-header' });
-		header.createDiv({ cls: 'dashboard-modal-title', text: t('quickNote.commandSearchTitle') });
-		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+	/** Picking a row is the only action — Cancel is the whole footer. */
+	protected buildFooter(footer: HTMLElement): void {
+		footer.createEl('button', {
+			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
+			text: this.cancelLabel(),
+		}).addEventListener('click', () => this.close());
+	}
 
+	/** No save step: rows are picked, not configured. */
+	protected submit(): void { /* unused */ }
+
+	protected renderBody(body: HTMLElement): void {
 		const wrap = body.createDiv({ cls: 'dashboard-docsearch' });
 		const input = wrap.createEl('input', {
 			cls: 'dashboard-modal-input dashboard-docsearch-input',
@@ -641,15 +629,5 @@ class CommandSearchModal extends Modal {
 		input.addEventListener('input', () => renderResults(input.value));
 		renderResults(input.value);
 		input.focus();
-
-		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
-			text: t('common.cancel'),
-		}).addEventListener('click', () => this.close());
-	}
-
-	onClose(): void {
-		this.contentEl.empty();
 	}
 }

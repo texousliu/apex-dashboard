@@ -1,10 +1,10 @@
-import { App, Modal } from 'obsidian';
+import type { App } from 'obsidian';
 import type { WeatherConfig } from './types';
 import { geocodeCity, type GeocodeResult } from './weather-service';
 import { t } from './i18n';
-import { applyModalTheme } from './modal-theme';
+import { SectionConfigModal } from './section/config-modal';
 
-export class WeatherConfigModal extends Modal {
+export class WeatherConfigModal extends SectionConfigModal {
 	private onSave: (title: string, config: WeatherConfig) => void;
 
 	private cityName = '';
@@ -13,6 +13,8 @@ export class WeatherConfigModal extends Modal {
 	private useManual = false;
 	private results: GeocodeResult[] = [];
 	private searchTimer: number | null = null;
+	private latInput: HTMLInputElement | null = null;
+	private lonInput: HTMLInputElement | null = null;
 
 	constructor(
 		app: App,
@@ -22,20 +24,11 @@ export class WeatherConfigModal extends Modal {
 		this.onSave = onSave;
 	}
 
-	onOpen(): void {
-		const { contentEl, containerEl } = this;
-		contentEl.empty();
-		contentEl.addClass('dashboard-library-config-modal');
-		containerEl.addClass('modal--dashboard');
-		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		applyModalTheme(containerEl);
+	protected title(): string {
+		return t('weather.configTitle');
+	}
 
-		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
-		const header = container.createDiv({ cls: 'dashboard-modal-header' });
-		header.createDiv({ cls: 'dashboard-modal-title', text: t('weather.configTitle') });
-
-		const body = container.createDiv({ cls: 'dashboard-modal-body' });
-
+	protected renderBody(body: HTMLElement): void {
 		// City search
 		const citySection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		citySection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('weather.cityLabel') });
@@ -104,6 +97,8 @@ export class WeatherConfigModal extends Modal {
 			attr: { type: 'number', step: '0.0001', placeholder: '116.4074' },
 		});
 
+		this.latInput = latInput;
+		this.lonInput = lonInput;
 		latRow.setCssProps({ display: 'none' });
 		lonRow.setCssProps({ display: 'none' });
 		manualCheck.addEventListener('change', () => {
@@ -112,43 +107,34 @@ export class WeatherConfigModal extends Modal {
 			lonRow.setCssProps({ display: this.useManual ? 'flex' : 'none' });
 		});
 
-		// Actions
-		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
-			text: t('common.cancel'),
-		}).addEventListener('click', () => this.close());
-		const saveBtn = footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
-			text: t('common.save'),
-		});
-		saveBtn.addEventListener('click', () => {
-			let lat: number, lon: number, city: string;
-
-			if (this.useManual) {
-				lat = parseFloat(latInput.value) || 0;
-				lon = parseFloat(lonInput.value) || 0;
-				city = `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
-			} else {
-				lat = this.latitude;
-				lon = this.longitude;
-				city = this.cityName || `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
-			}
-
-			if (isNaN(lat) || isNaN(lon)) return;
-				if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return;
-				if (lat === 0 && lon === 0) return;
-
-			this.onSave(city, { latitude: lat, longitude: lon, cityName: city });
-			this.close();
-		});
-
 		cityInput.focus();
+	}
+
+	protected submit(): void {
+		let lat: number, lon: number, city: string;
+
+		if (this.useManual) {
+			lat = parseFloat(this.latInput?.value ?? '') || 0;
+			lon = parseFloat(this.lonInput?.value ?? '') || 0;
+			city = `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+		} else {
+			lat = this.latitude;
+			lon = this.longitude;
+			city = this.cityName || `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+		}
+
+		// Out-of-range / missing coordinates are a silent no-op: the field is
+		// still on screen, so the user can fix it instead of the modal closing.
+		if (isNaN(lat) || isNaN(lon)) return;
+		if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return;
+		if (lat === 0 && lon === 0) return;
+
+		this.onSave(city, { latitude: lat, longitude: lon, cityName: city });
+		this.close();
 	}
 
 	onClose(): void {
 		if (this.searchTimer) window.clearTimeout(this.searchTimer);
-		const { contentEl } = this;
-		contentEl.empty();
+		super.onClose();
 	}
 }

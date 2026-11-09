@@ -1,7 +1,7 @@
-import { App, Modal } from 'obsidian';
+import type { App } from 'obsidian';
 import type { DashboardCard, TaskCardConfig } from './types';
 import { t } from './i18n';
-import { applyModalTheme } from './modal-theme';
+import { SectionConfigModal } from './section/config-modal';
 
 /**
  * Per-card config for a todo-list card (the gear button on the card).
@@ -10,7 +10,7 @@ import { applyModalTheme } from './modal-theme';
  * daily-note task source and the heading level used when the card title is
  * written into a note — so they live in one dialog with an explicit Save.
  */
-export class TaskCardConfigModal extends Modal {
+export class TaskCardConfigModal extends SectionConfigModal {
 	private readonly card: DashboardCard;
 	private readonly onSave: (config: TaskCardConfig) => void;
 
@@ -27,19 +27,11 @@ export class TaskCardConfigModal extends Modal {
 		this.headingLevel = card.dailyHeadingLevel ?? 3;
 	}
 
-	onOpen(): void {
-		const { contentEl, containerEl } = this;
-		contentEl.empty();
-		contentEl.addClass('dashboard-library-config-modal');
-		containerEl.addClass('modal--dashboard');
-		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		applyModalTheme(containerEl);
+	protected title(): string {
+		return t('taskConfig.title');
+	}
 
-		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
-		const header = container.createDiv({ cls: 'dashboard-modal-header' });
-		header.createDiv({ cls: 'dashboard-modal-title', text: t('taskConfig.title') });
-
-		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+	protected renderBody(body: HTMLElement): void {
 		const form = body.createDiv({ cls: 'dashboard-modal-form' });
 
 		// Completion behavior: where a checked task lands in the list.
@@ -86,27 +78,15 @@ export class TaskCardConfigModal extends Modal {
 		});
 		headingField.createDiv({ cls: 'dashboard-modal-hint', text: t('taskConfig.headingLevelDesc') });
 
-		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
-			text: t('common.cancel'),
-		}).addEventListener('click', () => this.close());
-		const saveBtn = footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
-			text: t('common.save'),
-		});
-		saveBtn.addEventListener('click', () => {
-			this.onSave({
-				taskCompleteBehavior: this.behavior,
-				tasksFromDaily: this.fromDaily,
-				dailyHeadingLevel: this.headingLevel,
-			});
-			this.close();
-		});
 	}
 
-	onClose(): void {
-		this.contentEl.empty();
+	protected submit(): void {
+		this.onSave({
+			taskCompleteBehavior: this.behavior,
+			tasksFromDaily: this.fromDaily,
+			dailyHeadingLevel: this.headingLevel,
+		});
+		this.close();
 	}
 }
 

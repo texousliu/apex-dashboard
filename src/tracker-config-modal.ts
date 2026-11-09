@@ -1,10 +1,10 @@
-import { App, Modal } from 'obsidian';
+import type { App } from 'obsidian';
 import type { TrackerConfig, TrackerStyle } from './types';
 import { suggestTrackerKeys } from './tracker-service';
 import { t } from './i18n';
-import { applyModalTheme } from './modal-theme';
+import { SectionConfigModal } from './section/config-modal';
 
-export class TrackerConfigModal extends Modal {
+export class TrackerConfigModal extends SectionConfigModal {
 	private onSave: (title: string, config: TrackerConfig) => void;
 
 	private keyValue = '';
@@ -19,20 +19,11 @@ export class TrackerConfigModal extends Modal {
 		this.onSave = onSave;
 	}
 
-	onOpen(): void {
-		const { contentEl, containerEl } = this;
-		contentEl.empty();
-		contentEl.addClass('dashboard-library-config-modal');
-		containerEl.addClass('modal--dashboard');
-		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		applyModalTheme(containerEl);
+	protected title(): string {
+		return t('tracker.configTitle');
+	}
 
-		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
-		const header = container.createDiv({ cls: 'dashboard-modal-header' });
-		header.createDiv({ cls: 'dashboard-modal-title', text: t('tracker.configTitle') });
-
-		const body = container.createDiv({ cls: 'dashboard-modal-body' });
-
+	protected renderBody(body: HTMLElement): void {
 		// Frontmatter key
 		const keySection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		keySection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('tracker.keyLabel') });
@@ -108,34 +99,21 @@ export class TrackerConfigModal extends Modal {
 			});
 		}
 
-		// Actions
-		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
-			text: t('common.cancel'),
-		}).addEventListener('click', () => this.close());
-		const saveBtn = footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
-			text: t('common.save'),
-		});
-		saveBtn.addEventListener('click', () => {
-			if (!this.keyValue) return;
-			this.onSave(this.keyValue, { key: this.keyValue, days: this.daysValue, style: this.styleValue });
-			this.close();
-		});
-
+		// Enter in the key field saves, same as clicking the footer button.
 		keyInput.addEventListener('keydown', (e) => {
 			if (e.key === 'Enter') {
 				e.preventDefault();
-				saveBtn.click();
+				this.confirmBtn?.click();
 			}
 		});
 
 		keyInput.focus();
 	}
 
-	onClose(): void {
-		const { contentEl } = this;
-		contentEl.empty();
+	protected submit(): void {
+		// A tracker without a key has nothing to chart — stay open.
+		if (!this.keyValue) return;
+		this.onSave(this.keyValue, { key: this.keyValue, days: this.daysValue, style: this.styleValue });
+		this.close();
 	}
 }

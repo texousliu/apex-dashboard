@@ -288,7 +288,11 @@ renderSectionState(el, { kind: 'loading' | 'empty' | 'error'; text: string; hint
 > - ✅ 契约测试 `verify-section-config-modal`（外壳/重复打开不叠 DOM/保存与取消接线/footer 先于 body/变体与自定义按钮/零残留）。
 > - ✅ 切片 C `updateSectionConfig`（`src/sync.ts`）：9 个 `updateXxxConfig` 的读-改-写合并为 `updateSectionConfig(columnName, key, config)` + 私有 `patchColumn()`；key 列表 `SyncEngine.SECTION_CONFIG_KEYS` 成为「哪些字段是卡片配置」的唯一声明。未知列名直接短路（不再写一份一模一样的看板）。`updateNotesSectionConfig` 收敛到同一 helper，仍是「配置 + showCover」一次写盘。
 > - ✅ 27 个 `view.ts` 调用点改走 `updateSectionConfig(name, 'xxxConfig', cfg)`；契约测试 `verify-section-config-write`（每键一写/不串列/未知列零写/notes 双字段一次写/旧方法名零残留）。
-> - ⬜ 遗留：`dashboard-library-empty` 这类纯文本空态（约 19 处，含弹窗内的列表空态）与 `dashboard-rss-empty` 尚未迁移；folder / pipeline / pm / skills / weread 这 5 个 section 配置弹窗仍在手写外壳（folder 525 行、pipeline 625 行，含自定义 footer / 二级弹窗，需逐个评估）。
+> - ✅ 弹窗全部迁移（18 个 `*ConfigModal` + 2 个叠在其上的选择器）：folder / pipeline / pm / weread / skill-section / skill-create / skill-widget / task-card / tracker / weather / quick-note，以及 `MultiFolderSelectModal`、`CommandSearchModal`（后者用 `buildFooter` 只放取消）。
+> - ✅ 新增 `frameClass()` 钩子：skill 的两个弹窗、quick-note 的 `dashboard-quicknote-config` 要靠框架类做作用域；`sizeClass()` 返回 `''` 即全宽（pipeline）。
+> - ✅ quick-note 的「增删行重绘整框」改为 `repaint()`：只清空 `this.body` 重画字段，外壳与用户马上要点的保存按钮不再被重建。
+> - ✅ 契约测试覆盖文件清单扩到 18 个，并新增「不得自建 footer」「覆写 onClose 必须 `super.onClose()`」两条规则（weather 的防抖计时器是真需要的清理）。
+> - ⬜ 遗留：`dashboard-library-empty` 这类纯文本空态（约 19 处，含弹窗内的列表空态）与 `dashboard-rss-empty` 尚未迁移。
 
 **验收**：视觉零回归（截图对比关键卡片空态）；`verify-*-config` 全绿。
 

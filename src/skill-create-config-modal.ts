@@ -6,21 +6,20 @@
  * the caller (view.ts) persists it and fires the first run.
  */
 
-import { App, Modal } from 'obsidian';
+import type { App } from 'obsidian';
 import type { AgentTarget, SkillCreateConfig } from './types';
 import { t } from './i18n';
-import { applyModalTheme } from './modal-theme';
+import { SectionConfigModal } from './section/config-modal';
 import { agentPickerOption, agentTargets, isValidSkillName } from './agent-dispatch';
 import { attachSkillPicker } from './skill-registry';
 import type DashboardPlugin from './main';
 
-export class SkillCreateConfigModal extends Modal {
+export class SkillCreateConfigModal extends SectionConfigModal {
 	private agent: AgentTarget;
 	private skillName: string;
 	private promptTemplate: string;
 	private directSend: boolean;
 	private validationEl: HTMLElement | null = null;
-	private confirmBtn: HTMLButtonElement | null = null;
 
 	constructor(
 		app: App,
@@ -35,19 +34,19 @@ export class SkillCreateConfigModal extends Modal {
 		this.directSend = existing?.directSend ?? false;
 	}
 
-	onOpen(): void {
-		const { contentEl, containerEl } = this;
-		contentEl.empty();
-		contentEl.addClass('dashboard-skillsec-createcfg-modal');
-		containerEl.addClass('modal--dashboard');
-		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		applyModalTheme(containerEl);
+	protected contentClass(): string {
+		return 'dashboard-skillsec-createcfg-modal';
+	}
 
-		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact dashboard-skillsec-createcfg' });
-		const header = container.createDiv({ cls: 'dashboard-modal-header' });
-		header.createDiv({ cls: 'dashboard-modal-title', text: t('skills.createCfgTitle') });
+	protected frameClass(): string {
+		return 'dashboard-skillsec-createcfg';
+	}
 
-		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+	protected title(): string {
+		return t('skills.createCfgTitle');
+	}
+
+	protected renderBody(body: HTMLElement): void {
 		body.createDiv({ cls: 'dashboard-library-config-hint', text: t('skills.createCfgHint') });
 
 		const agentRow = body.createDiv({ cls: 'dashboard-skillsec-createcfg-row' });
@@ -104,18 +103,6 @@ export class SkillCreateConfigModal extends Modal {
 		dsLabel.createSpan({ text: t('skills.createCfgDirectSend') });
 
 		this.validationEl = body.createDiv({ cls: 'dashboard-dataview-validation' });
-
-		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
-			text: t('common.cancel'),
-		}).addEventListener('click', () => this.close());
-		this.confirmBtn = footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
-			text: t('common.save'),
-			attr: { type: 'button' },
-		});
-		this.confirmBtn.addEventListener('click', () => this.trySave());
 		this.validate();
 	}
 
@@ -128,7 +115,7 @@ export class SkillCreateConfigModal extends Modal {
 		return ok;
 	}
 
-	private trySave(): void {
+	protected submit(): void {
 		if (!this.validate() || !this.skillName) return;
 		this.onSave({
 			agent: this.agent,

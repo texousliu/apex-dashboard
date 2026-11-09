@@ -6,10 +6,11 @@
  * material buttons are not bound to a skill card).
  */
 
-import { App, Modal, setIcon } from 'obsidian';
+import { setIcon } from 'obsidian';
+import type { App } from 'obsidian';
 import type { MaterialLibraryConfig, MaterialSkillButton } from './types';
 import { t } from './i18n';
-import { applyModalTheme } from './modal-theme';
+import { SectionConfigModal } from './section/config-modal';
 import { IconPickerModal } from './icon-picker-modal';
 import { MultiFolderSelectModal } from './folder-config-modal';
 import { LargeTextModal } from './large-text-modal';
@@ -18,7 +19,7 @@ import { agentButtonIcon } from './skill-card-buttons-modal';
 import { attachPathPicker } from './path-picker-modal';
 import { normalizeImportFolder } from './material-model';
 
-export class MaterialConfigModal extends Modal {
+export class MaterialConfigModal extends SectionConfigModal {
 	private includeFolders: string[];
 	private excludeFolders: string[];
 	private buttons: MaterialSkillButton[];
@@ -40,19 +41,11 @@ export class MaterialConfigModal extends Modal {
 		this.archiveFolder = normalizeImportFolder(config.archiveFolder ?? '');
 	}
 
-	onOpen(): void {
-		const { contentEl, containerEl } = this;
-		contentEl.empty();
-		contentEl.addClass('dashboard-library-config-modal');
-		containerEl.addClass('modal--dashboard');
-		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		applyModalTheme(containerEl);
+	protected title(): string {
+		return t('material.cfgTitle');
+	}
 
-		const wrap = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
-		const header = wrap.createDiv({ cls: 'dashboard-modal-header' });
-		header.createDiv({ cls: 'dashboard-modal-title', text: t('material.cfgTitle') });
-		const body = wrap.createDiv({ cls: 'dashboard-modal-body' });
-
+	protected renderBody(body: HTMLElement): void {
 		// --- Scan scope ----------------------------------------------------
 		const scopeSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		scopeSection.createDiv({ cls: 'dashboard-library-config-label', text: t('material.cfgInclude') });
@@ -241,12 +234,6 @@ export class MaterialConfigModal extends Modal {
 			}];
 			renderButtons();
 		});
-
-		const footer = wrap.createDiv({ cls: 'dashboard-modal-footer' });
-		footer.createEl('button', { text: t('common.cancel'), cls: 'dashboard-modal-btn dashboard-modal-btn--cancel' })
-			.addEventListener('click', () => this.close());
-		footer.createEl('button', { text: t('common.save'), cls: 'dashboard-modal-btn dashboard-modal-btn--confirm' })
-			.addEventListener('click', () => this.save());
 	}
 
 	private patchButton(index: number, patch: Partial<MaterialSkillButton>): void {
@@ -273,7 +260,8 @@ export class MaterialConfigModal extends Modal {
 		}
 	}
 
-	private save(): void {
+	/** Persist the scope, destinations and skill buttons. */
+	protected submit(): void {
 		this.onSaved({
 			includeFolders: this.includeFolders.map(f => f.trim()).filter(Boolean),
 			excludeFolders: this.excludeFolders.map(f => f.trim()).filter(Boolean),
@@ -288,9 +276,5 @@ export class MaterialConfigModal extends Modal {
 			})),
 		});
 		this.close();
-	}
-
-	onClose(): void {
-		this.contentEl.empty();
 	}
 }

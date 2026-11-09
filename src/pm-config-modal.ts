@@ -1,8 +1,9 @@
-import { App, Modal, Notice, setIcon } from 'obsidian';
+import { Notice, setIcon } from 'obsidian';
+import type { App } from 'obsidian';
 import type { AgentTarget, PmConfig, PmSkill, PmStage } from './types';
 import type DashboardPlugin from './main';
 import { t } from './i18n';
-import { applyModalTheme } from './modal-theme';
+import { SectionConfigModal } from './section/config-modal';
 import { attachPathPicker } from './path-picker-modal';
 import { IconPickerModal } from './icon-picker-modal';
 import { agentTargets, agentPickerOption, isValidSkillName } from './agent-dispatch';
@@ -21,7 +22,7 @@ function newPmSkillId(): string {
  * pipeline config's skill-card editor pattern, project-scoped). Local state
  * until Save hands a fresh PmConfig to onSave.
  */
-export class PmConfigModal extends Modal {
+export class PmConfigModal extends SectionConfigModal {
 	private rootFolder: string;
 	private stages: PmStage[];
 	private workNoteTemplate: string;
@@ -51,18 +52,11 @@ export class PmConfigModal extends Modal {
 		this.skills = (cfg.skills ?? []).map(skill => ({ ...skill }));
 	}
 
-	onOpen(): void {
-		const { contentEl, containerEl } = this;
-		contentEl.empty();
-		contentEl.addClass('dashboard-library-config-modal');
-		containerEl.addClass('modal--dashboard');
-		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		applyModalTheme(containerEl);
+	protected title(): string {
+		return t('pm.cfgTitle');
+	}
 
-		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
-		container.createDiv({ cls: 'dashboard-modal-header' }).createDiv({ cls: 'dashboard-modal-title', text: t('pm.cfgTitle') });
-		const body = container.createDiv({ cls: 'dashboard-modal-body' });
-
+	protected renderBody(body: HTMLElement): void {
 		// Source: root folder + exclusions.
 		const source = body.createDiv({ cls: 'dashboard-library-config-section' });
 		source.createDiv({ cls: 'dashboard-library-config-section-title', text: t('pm.cfgSource') });
@@ -136,11 +130,10 @@ export class PmConfigModal extends Modal {
 			this.renderSkills();
 		});
 
-		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
-		footer.createEl('button', { cls: 'dashboard-modal-btn dashboard-modal-btn--cancel', text: t('common.cancel') })
-			.addEventListener('click', () => this.close());
-		footer.createEl('button', { cls: 'dashboard-modal-btn dashboard-modal-btn--confirm', text: t('common.save') })
-			.addEventListener('click', () => { void this.save(); });
+	}
+
+	protected submit(): void {
+		void this.save();
 	}
 
 	private renderStages(): void {

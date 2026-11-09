@@ -10,10 +10,11 @@
  * sort" dropdown here was redundant with it).
  */
 
-import { App, Modal, setIcon } from 'obsidian';
+import { setIcon } from 'obsidian';
+import type { App } from 'obsidian';
 import type { SkillsSectionConfig, SkillCreateConfig, SkillSectionGroup } from './types';
 import { t } from './i18n';
-import { applyModalTheme } from './modal-theme';
+import { SectionConfigModal } from './section/config-modal';
 import { effectiveSkillGroups, getSkillLibraryStore, HOME_SKILL_STORES, pickFolderPath, UNGROUPED_ASSIGNMENT } from './skill-store';
 import { startGuardedDrag } from './drag-guard';
 import { SkillCreateConfigModal } from './skill-create-config-modal';
@@ -26,7 +27,7 @@ function newGroupId(): string {
 	return `g-${Date.now().toString(36)}-${groupSeq}`;
 }
 
-export class SkillSectionConfigModal extends Modal {
+export class SkillSectionConfigModal extends SectionConfigModal {
 	private visibleStores: Set<string>;
 	private groups: SkillSectionGroup[];
 
@@ -45,20 +46,19 @@ export class SkillSectionConfigModal extends Modal {
 		this.createSkill = existing?.createSkill;
 	}
 
-	onOpen(): void {
-		const { contentEl, containerEl } = this;
-		contentEl.empty();
-		contentEl.addClass('dashboard-skillsec-cfg-modal');
-		containerEl.addClass('modal--dashboard');
-		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		applyModalTheme(containerEl);
+	protected contentClass(): string {
+		return 'dashboard-skillsec-cfg-modal';
+	}
 
-		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact dashboard-skillsec-cfg' });
-		const header = container.createDiv({ cls: 'dashboard-modal-header' });
-		header.createDiv({ cls: 'dashboard-modal-title', text: t('skills.cfgTitle') });
+	protected frameClass(): string {
+		return 'dashboard-skillsec-cfg';
+	}
 
-		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+	protected title(): string {
+		return t('skills.cfgTitle');
+	}
 
+	protected renderBody(body: HTMLElement): void {
 		const groupsSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		groupsSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('skills.cfgGroups') });
 		groupsSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('skills.cfgGroupsHint') });
@@ -135,16 +135,10 @@ export class SkillSectionConfigModal extends Modal {
 			this.renderCreateSkillRow();
 		}
 
-		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
-			text: t('common.cancel'),
-		}).addEventListener('click', () => this.close());
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
-			text: t('common.save'),
-			attr: { type: 'button' },
-		}).addEventListener('click', () => this.save());
+	}
+
+	protected submit(): void {
+		this.save();
 	}
 
 	private listEl: HTMLElement | null = null;

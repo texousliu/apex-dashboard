@@ -1,8 +1,9 @@
-import { App, Modal, setIcon } from 'obsidian';
+import { setIcon } from 'obsidian';
+import type { App } from 'obsidian';
 import type DashboardPlugin from './main';
 import type { AgentTarget, SkillShortcut } from './types';
 import { t } from './i18n';
-import { applyModalTheme } from './modal-theme';
+import { SectionConfigModal } from './section/config-modal';
 import { IconPickerModal } from './icon-picker-modal';
 import { agentTargets, agentPickerOption } from './agent-dispatch';
 import { attachSkillPicker, rememberSkillNames } from './skill-registry';
@@ -13,7 +14,7 @@ import { attachSkillPicker, rememberSkillNames } from './skill-registry';
  * (settings.skillWidgetButtons). Uses the pipeline config's section/row
  * classes so it inherits the plugin's standard themed modal look.
  */
-export class SkillWidgetConfigModal extends Modal {
+export class SkillWidgetConfigModal extends SectionConfigModal {
 	private buttons: SkillShortcut[];
 	private listEl: HTMLElement | null = null;
 
@@ -22,19 +23,11 @@ export class SkillWidgetConfigModal extends Modal {
 		this.buttons = (plugin.settings.skillWidgetButtons ?? []).map(b => ({ ...b }));
 	}
 
-	onOpen(): void {
-		const { contentEl, containerEl } = this;
-		contentEl.empty();
-		contentEl.addClass('dashboard-library-config-modal');
-		containerEl.addClass('modal--dashboard');
-		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		applyModalTheme(containerEl);
+	protected title(): string {
+		return t('skillsWidget.cfgTitle');
+	}
 
-		const wrap = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
-		const header = wrap.createDiv({ cls: 'dashboard-modal-header' });
-		header.createDiv({ cls: 'dashboard-modal-title', text: t('skillsWidget.cfgTitle') });
-
-		const body = wrap.createDiv({ cls: 'dashboard-modal-body' });
+	protected renderBody(body: HTMLElement): void {
 		const section = body.createDiv({ cls: 'dashboard-library-config-section' });
 		section.createDiv({ cls: 'dashboard-library-config-section-title', text: t('skillsWidget.cfgTitle') });
 		this.listEl = section.createDiv({ cls: 'dashboard-pipeline-cfg-skills' });
@@ -53,11 +46,10 @@ export class SkillWidgetConfigModal extends Modal {
 			this.renderRows();
 		});
 
-		const footer = wrap.createDiv({ cls: 'dashboard-modal-footer' });
-		footer.createEl('button', { text: t('common.cancel'), cls: 'dashboard-modal-btn dashboard-modal-btn--cancel' })
-			.addEventListener('click', () => this.close());
-		footer.createEl('button', { text: t('common.save'), cls: 'dashboard-modal-btn dashboard-modal-btn--confirm' })
-			.addEventListener('click', () => void this.save());
+	}
+
+	protected submit(): void {
+		void this.save();
 	}
 
 	private patchRow(index: number, patch: Partial<SkillShortcut>): void {
@@ -149,6 +141,7 @@ export class SkillWidgetConfigModal extends Modal {
 		});
 	}
 
+	/** Persist, remember the skill names per agent, then repaint every board. */
 	private async save(): Promise<void> {
 		const saved = this.buttons
 			.filter(b => b.label.trim())
@@ -163,9 +156,5 @@ export class SkillWidgetConfigModal extends Modal {
 		}
 		this.plugin.refreshAllDashboards();
 		this.close();
-	}
-
-	onClose(): void {
-		this.contentEl.empty();
 	}
 }

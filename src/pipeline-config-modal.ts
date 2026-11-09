@@ -1,8 +1,9 @@
-import { App, Modal, Notice, setIcon } from 'obsidian';
+import { Notice, setIcon } from 'obsidian';
+import type { App } from 'obsidian';
 import type DashboardPlugin from './main';
 import type { AgentTarget, PipelineAction, PipelineConfig, PipelineSkill, PipelineStage } from './types';
 import { t } from './i18n';
-import { applyModalTheme } from './modal-theme';
+import { SectionConfigModal } from './section/config-modal';
 import { attachPathPicker } from './path-picker-modal';
 import { IconPickerModal } from './icon-picker-modal';
 import { agentTargets, agentPickerOption, isValidSkillName } from './agent-dispatch';
@@ -32,7 +33,7 @@ function newActionId(): string {
  * new-item template and the direct-send toggle. RssConfigModal's row-editor
  * idiom: state is local until Save hands a fresh config to onSave.
  */
-export class PipelineConfigModal extends Modal {
+export class PipelineConfigModal extends SectionConfigModal {
 	private rootFolder: string;
 	private statusField: string;
 	private stages: PipelineStage[];
@@ -98,20 +99,16 @@ export class PipelineConfigModal extends Modal {
 		this.carriedFilter = cfg.filter ? { ...cfg.filter } : undefined;
 	}
 
-	onOpen(): void {
-		const { contentEl, containerEl } = this;
-		contentEl.empty();
-		contentEl.addClass('dashboard-library-config-modal');
-		containerEl.addClass('modal--dashboard');
-		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		applyModalTheme(containerEl);
+	/** Full-width frame: the stage/skill editors need the room. */
+	protected sizeClass(): string {
+		return '';
+	}
 
-		const container = contentEl.createDiv({ cls: 'dashboard-modal' });
-		const header = container.createDiv({ cls: 'dashboard-modal-header' });
-		header.createDiv({ cls: 'dashboard-modal-title', text: t('pipeline.cfgTitle') });
+	protected title(): string {
+		return t('pipeline.cfgTitle');
+	}
 
-		const body = container.createDiv({ cls: 'dashboard-modal-body' });
-
+	protected renderBody(body: HTMLElement): void {
 		// Source: root folder + status field.
 		const source = body.createDiv({ cls: 'dashboard-library-config-section' });
 		source.createDiv({ cls: 'dashboard-library-config-section-title', text: t('pipeline.cfgSource') });
@@ -256,15 +253,6 @@ export class PipelineConfigModal extends Modal {
 		attachPathPicker(tplRow, tplInput, this.app, 'file', (path) => { this.templatePath = path; });
 		tplInput.addEventListener('change', () => { this.templatePath = tplInput.value.trim(); });
 
-		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
-			text: t('common.cancel'),
-		}).addEventListener('click', () => this.close());
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
-			text: t('common.save'),
-		}).addEventListener('click', () => this.trySave());
 	}
 
 	/** Patch one stage/skill from its CURRENT state (not the render-time
@@ -538,7 +526,7 @@ export class PipelineConfigModal extends Modal {
 		del.addEventListener('click', onRemove);
 	}
 
-	private trySave(): void {
+	protected submit(): void {
 		const stages = this.stages
 			.map(stage => ({ ...stage, label: stage.label.trim(), value: stage.value.trim(), folder: normalizeFolderPath(stage.folder ?? '') || undefined }))
 			.filter(stage => stage.label || stage.value);
@@ -606,10 +594,6 @@ export class PipelineConfigModal extends Modal {
 		};
 		this.onSave(config);
 		this.close();
-	}
-
-	onClose(): void {
-		this.contentEl.empty();
 	}
 }
 

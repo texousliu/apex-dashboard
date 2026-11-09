@@ -1,7 +1,8 @@
-import { App, Modal, TFolder } from 'obsidian';
+import { TFolder } from 'obsidian';
+import type { App } from 'obsidian';
 import { t } from './i18n';
 import { extractFrontmatterProperties, getAllTags, renderTagsSelector } from './library-section';
-import { applyModalTheme } from './modal-theme';
+import { SectionConfigModal } from './section/config-modal';
 import { ExcludeFoldersEditor } from './exclude-folders-editor';
 import { PropertyFiltersEditor } from './property-filters-editor';
 import { TemplateFilesEditor } from './template-files-editor';
@@ -83,7 +84,7 @@ export function folderResultToLibraryConfig(
  * "group by" selector (by property or by subfolder), and card property
  * display settings.
  */
-export class FolderConfigModal extends Modal {
+export class FolderConfigModal extends SectionConfigModal {
 	private folders: string[];
 	private readonly initialExcludeFolders: string[];
 	private selectedTags: string[];
@@ -96,6 +97,10 @@ export class FolderConfigModal extends Modal {
 	private visibleProperties: string[];
 	private templatePaths: string[];
 	private readonly onSave: (result: FolderConfigResult) => void;
+	private excludeEditor: ExcludeFoldersEditor | null = null;
+	private filterEditor: PropertyFiltersEditor | null = null;
+	private pinnedEditor: VisiblePropertiesEditor | null = null;
+	private templateEditor: TemplateFilesEditor | null = null;
 
 	constructor(
 		app: App,
@@ -127,23 +132,11 @@ export class FolderConfigModal extends Modal {
 		this.onSave = onSave;
 	}
 
-	onOpen(): void {
-		const { contentEl, containerEl } = this;
-		contentEl.empty();
-		contentEl.addClass('dashboard-library-config-modal');
-		containerEl.addClass('modal--dashboard');
-		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		applyModalTheme(containerEl);
+	protected title(): string {
+		return t('folder.configure');
+	}
 
-		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
-
-		// Header
-		const header = container.createDiv({ cls: 'dashboard-modal-header' });
-		header.createDiv({ cls: 'dashboard-modal-title', text: t('folder.configure') });
-
-		// Body
-		const body = container.createDiv({ cls: 'dashboard-modal-body' });
-
+	protected renderBody(body: HTMLElement): void {
 		// Folder paths
 		const pathSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		pathSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('folder.path') });
@@ -204,7 +197,7 @@ export class FolderConfigModal extends Modal {
 		const excludeSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		excludeSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('exclude.folders') });
 		excludeSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('exclude.foldersHint') });
-		const excludeEditor = new ExcludeFoldersEditor(this.app, excludeSection, this.initialExcludeFolders);
+		this.excludeEditor = new ExcludeFoldersEditor(this.app, excludeSection, this.initialExcludeFolders);
 
 		// Tags filter, with a search box to narrow the chip list when the vault
 		// has too many tags to scan by eye.
@@ -245,7 +238,7 @@ export class FolderConfigModal extends Modal {
 		const availableProps = extractFrontmatterProperties(this.app);
 		const filterSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		filterSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('library.property') });
-		const filterEditor = new PropertyFiltersEditor(
+		this.filterEditor = new PropertyFiltersEditor(
 			this.app,
 			filterSection.createDiv({ cls: 'dashboard-library-config-filters' }),
 			this.propertyFilters,
@@ -326,47 +319,33 @@ export class FolderConfigModal extends Modal {
 
 		// Pinned properties: picked keys show first (all of them); only cards
 		// hitting none fall back to the automatic slice above.
-		const pinnedEditor = new VisiblePropertiesEditor(this.app, propsSection, this.visibleProperties);
+		this.pinnedEditor = new VisiblePropertiesEditor(this.app, propsSection, this.visibleProperties);
 
-		// Footer
-		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
 		// New-note templates: the body of any of these notes seeds notes created
 		// by the toolbar "+" (frontmatter merged from the section's filter
 		// props). Several templates turn the button into a picker menu.
 		const tplSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		tplSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('library.newNoteTemplate') });
 		tplSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('library.newNoteTemplateHint') });
-		const tplEditor = new TemplateFilesEditor(this.app, tplSection, this.templatePaths);
-
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
-			text: t('common.cancel'),
-		}).addEventListener('click', () => this.close());
-
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
-			text: t('common.save'),
-		}).addEventListener('click', () => {
-			const picked = pinnedEditor.value;
-			this.onSave({
-				folders: this.folders,
-				excludeFolders: excludeEditor.value,
-				tags: this.selectedTags,
-				propertyFilters: filterEditor.value,
-				groupBy: this.groupBy || undefined,
-				groupMode: this.groupMode,
-				kanbanShowCovers: this.kanbanShowCovers,
-				showProperties: this.showProperties,
-				propertyLimit: this.propertyLimit,
-				visibleProperties: picked.length > 0 ? picked : undefined,
-				templatePaths: tplEditor.value,
-			});
-			this.close();
-		});
+		this.templateEditor = new TemplateFilesEditor(this.app, tplSection, this.templatePaths);
 	}
 
-	onClose(): void {
-		this.contentEl.empty();
+	protected submit(): void {
+		const picked = this.pinnedEditor?.value ?? [];
+		this.onSave({
+			folders: this.folders,
+			excludeFolders: this.excludeEditor?.value ?? [],
+			tags: this.selectedTags,
+			propertyFilters: this.filterEditor?.value ?? [],
+			groupBy: this.groupBy || undefined,
+			groupMode: this.groupMode,
+			kanbanShowCovers: this.kanbanShowCovers,
+			showProperties: this.showProperties,
+			propertyLimit: this.propertyLimit,
+			visibleProperties: picked.length > 0 ? picked : undefined,
+			templatePaths: this.templateEditor?.value ?? [],
+		});
+		this.close();
 	}
 }
 
@@ -383,7 +362,7 @@ export class FolderConfigModal extends Modal {
  * redundant checkbox. Source/inclusion consumers (folder OR unions) pass false
  * so parents and children can be ticked independently.
  */
-export class MultiFolderSelectModal extends Modal {
+export class MultiFolderSelectModal extends SectionConfigModal {
 	private readonly initialSelected: string[];
 	private readonly onConfirmFolders: (folders: string[]) => void;
 	private readonly parentCoversChildren: boolean;
@@ -400,20 +379,11 @@ export class MultiFolderSelectModal extends Modal {
 		this.parentCoversChildren = opts?.parentCoversChildren ?? false;
 	}
 
-	onOpen(): void {
-		const { contentEl, containerEl } = this;
-		contentEl.empty();
-		contentEl.addClass('dashboard-library-config-modal');
-		containerEl.addClass('modal--dashboard');
-		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		applyModalTheme(containerEl);
+	protected title(): string {
+		return t('folder.selectFolders');
+	}
 
-		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
-
-		const header = container.createDiv({ cls: 'dashboard-modal-header' });
-		header.createDiv({ cls: 'dashboard-modal-title', text: t('folder.selectFolders') });
-
-		const body = container.createDiv({ cls: 'dashboard-modal-body' });
+	protected renderBody(body: HTMLElement): void {
 		if (this.parentCoversChildren) {
 			body.createDiv({ cls: 'dashboard-library-config-hint', text: t('folder.parentExcludesHint') });
 		}
@@ -421,8 +391,8 @@ export class MultiFolderSelectModal extends Modal {
 		// Selection state, keyed by lowercased path (matching is case-insensitive
 		// downstream). displayFor keeps the original casing to persist, preferring
 		// the vault's canonical path once a row is checked.
-		const selectedLower = new Set(this.initialSelected.map(f => f.toLowerCase()));
-		const displayFor = new Map<string, string>(
+		this.selectedLower = new Set(this.initialSelected.map(f => f.toLowerCase()));
+		this.displayFor = new Map<string, string>(
 			this.initialSelected.map(f => [f.toLowerCase(), f] as const),
 		);
 
@@ -437,7 +407,7 @@ export class MultiFolderSelectModal extends Modal {
 		const isCoveredBy = (path: string): boolean => {
 			if (!this.parentCoversChildren) return false;
 			const lower = path.toLowerCase();
-			for (const s of selectedLower) {
+			for (const s of this.selectedLower) {
 				if (s !== lower && lower.startsWith(s + '/')) return true;
 			}
 			return false;
@@ -453,7 +423,7 @@ export class MultiFolderSelectModal extends Modal {
 		const countEl = body.createDiv({ cls: 'dashboard-folder-multi-count' });
 
 		const renderCount = (): void => {
-			countEl.textContent = t('folder.selectedCount', { count: selectedLower.size });
+			countEl.textContent = t('folder.selectedCount', { count: this.selectedLower.size });
 		};
 
 		const renderList = (): void => {
@@ -468,7 +438,7 @@ export class MultiFolderSelectModal extends Modal {
 			}
 			for (const path of visible) {
 				const lower = path.toLowerCase();
-				const checked = selectedLower.has(lower);
+				const checked = this.selectedLower.has(lower);
 				const covered = isCoveredBy(path);
 
 				const row = listHost.createDiv({
@@ -488,11 +458,11 @@ export class MultiFolderSelectModal extends Modal {
 
 				const toggle = (): void => {
 					if (covered) return;
-					if (selectedLower.has(lower)) {
-						selectedLower.delete(lower);
+					if (this.selectedLower.has(lower)) {
+						this.selectedLower.delete(lower);
 					} else {
-						selectedLower.add(lower);
-						displayFor.set(lower, path);
+						this.selectedLower.add(lower);
+						this.displayFor.set(lower, path);
 					}
 					renderList();
 					renderCount();
@@ -506,20 +476,18 @@ export class MultiFolderSelectModal extends Modal {
 		renderList();
 		renderCount();
 
-		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
-		footer.createEl('button', { cls: 'dashboard-modal-btn dashboard-modal-btn--cancel', text: t('common.cancel') })
-			.addEventListener('click', () => this.close());
-		footer.createEl('button', { cls: 'dashboard-modal-btn dashboard-modal-btn--confirm', text: t('common.save') })
-			.addEventListener('click', () => {
-				// Map back to display casing; entries without a row (typed by hand,
-				// or folders deleted from the vault) fall back to their stored form.
-				const folders = [...selectedLower].map(l => displayFor.get(l) ?? l);
-				this.onConfirmFolders(folders);
-				this.close();
-			});
 	}
 
-	onClose(): void {
-		this.contentEl.empty();
+	/** Picks are keyed by lowercased path (matching is case-insensitive
+	 *  downstream); `displayFor` keeps the original casing to persist. */
+	private selectedLower = new Set<string>();
+	private displayFor = new Map<string, string>();
+
+	protected submit(): void {
+		// Map back to display casing; entries without a row (typed by hand,
+		// or folders deleted from the vault) fall back to their stored form.
+		const folders = [...this.selectedLower].map(l => this.displayFor.get(l) ?? l);
+		this.onConfirmFolders(folders);
+		this.close();
 	}
 }
