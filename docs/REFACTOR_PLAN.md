@@ -292,13 +292,21 @@ renderSectionState(el, { kind: 'loading' | 'empty' | 'error'; text: string; hint
 > - ✅ 新增 `frameClass()` 钩子：skill 的两个弹窗、quick-note 的 `dashboard-quicknote-config` 要靠框架类做作用域；`sizeClass()` 返回 `''` 即全宽（pipeline）。
 > - ✅ quick-note 的「增删行重绘整框」改为 `repaint()`：只清空 `this.body` 重画字段，外壳与用户马上要点的保存按钮不再被重建。
 > - ✅ 契约测试覆盖文件清单扩到 18 个，并新增「不得自建 footer」「覆写 onClose 必须 `super.onClose()`」两条规则（weather 的防抖计时器是真需要的清理）。
-> - ⬜ 遗留：`dashboard-library-empty` 这类纯文本空态（约 19 处，含弹窗内的列表空态）与 `dashboard-rss-empty` 尚未迁移。
+> - ✅ **刻意不迁移**的剩余空态（`dashboard-library-empty` 19 处、`dashboard-rss-empty`）：它们是**列表内的单行占位**（12px、10–40px 内边距、无图标），和 `renderSectionState` 的「区块级空态」（居中列、图标、按钮）是两种视觉角色；强行统一会把列表占位撑成一大块。这与 dataview 刻意不接 vault 去抖是同一类决定——共享的是行为，不是外观。
+> - Phase 3 完成。顺带记下一条经验：把「长得像」的 UI 合并前先确认它们**承担同样的职责**；只有标记结构一致、职责不同的合并，反而会制造下一轮「为什么列表空态这么大」的 bug 报告。
 
 **验收**：视觉零回归（截图对比关键卡片空态）；`verify-*-config` 全绿。
 
 ### Phase 4　拆分巨石（持续，按需）
 
 `renderer.ts` 按职责切成 `card/render-card.ts`、`widget/render-widgets.ts`、`task/render-task-list.ts`；`view.ts` 切成 `view/lifecycle.ts`、`view/events.ts`、`view/refresh.ts`。**只搬不改**，每搬一块跑全量测试。
+
+> **进度**：
+> - ✅ 切片 A：`src/render/sidebar-reading.ts`（715 行）——阅读追踪侧栏组件 + 它的四个弹窗（结束计时、编辑书籍、搜书、阅读统计）。整块几乎零耦合（只用 `ReadingService` / 书籍搜索 / `setIcon` / `t`），原位置是 `renderer.ts` 中最大的一块无关职责。`renderer.ts` 4557 → 3847 行。
+> - ✅ 顺手抽出 `src/render/time-format.ts` 的 `formatTime`：番茄钟与阅读都在用它显示计时，原来只存在于 renderer 里、跨模块只能重复实现。
+> - ✅ 移动方式：整段剪切 → 改相对导入 → `renderer.ts` 保留 `export { … } from './render/sidebar-reading'`，外部调用点（`reading-mini-timer`、`view.ts`）零改动。
+> - ✅ 经验：抽出去的副作用是「原文件留下的 import 变成 unused」——eslint 会一次性列出，照着删即可；但 `export … from` 不会让本地 import 变成"已使用"，只 import 真正在本文件调用的名字。
+> - ⬜ 下一块建议：提醒弹窗簇（`createReminderButton` / `showReminderPopup` / `closeAllReminderPopups`，约 260 行）→ `src/render/reminder-popup.ts`；tracker 的三个图表函数（约 150 行）→ `src/render/tracker-chart.ts`（要连 `chartInstances` 一起搬）。
 
 ---
 
