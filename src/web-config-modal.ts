@@ -1,7 +1,7 @@
-import { App, Modal } from 'obsidian';
+import type { App } from 'obsidian';
 import type { WebEmbedConfig } from './types';
 import { t } from './i18n';
-import { applyModalTheme } from './modal-theme';
+import { SectionConfigModal } from './section/config-modal';
 import { isValidWebUrl, normalizeWebUrl } from './web-precheck';
 
 /** Single-select zoom presets — dense web apps shrink, sparse pages grow.
@@ -12,10 +12,10 @@ const ZOOM_PRESETS: ReadonlyArray<number> = [0.5, 0.75, 0.9, 1, 1.1, 1.25];
  * Configuration modal for a Web section: the URL to embed and a display zoom.
  * The engine (iframe vs desktop webview) is chosen automatically by the
  * section's precheck — there is deliberately no manual override. Structure
- * mirrors DataviewConfigModal (same modal theme preamble, section layout, and
- * footer) so it reads as a sibling at a glance.
+ * uses the shared SectionConfigModal shell, so it reads as a sibling of the
+ * dataview / rss configs at a glance.
  */
-export class WebConfigModal extends Modal {
+export class WebConfigModal extends SectionConfigModal {
 	private config: WebEmbedConfig;
 	private readonly onSave: (config: WebEmbedConfig) => void;
 	private urlInput: HTMLInputElement | null = null;
@@ -27,21 +27,11 @@ export class WebConfigModal extends Modal {
 		this.config = { ...config };
 	}
 
-	onOpen(): void {
-		const { contentEl, containerEl } = this;
-		contentEl.empty();
-		contentEl.addClass('dashboard-library-config-modal');
-		containerEl.addClass('modal--dashboard');
-		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		applyModalTheme(containerEl);
+	protected title(): string {
+		return t('web.configure');
+	}
 
-		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
-
-		const header = container.createDiv({ cls: 'dashboard-modal-header' });
-		header.createDiv({ cls: 'dashboard-modal-title', text: t('web.configure') });
-
-		const body = container.createDiv({ cls: 'dashboard-modal-body' });
-
+	protected renderBody(body: HTMLElement): void {
 		// URL input with live validation.
 		const urlSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		urlSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('web.urlLabel') });
@@ -81,26 +71,18 @@ export class WebConfigModal extends Modal {
 			});
 		}
 
-		// Footer. Save does not gate on a valid URL: the parser tolerates any
-		// string and the section renders a configure-me empty state, so a
-		// half-finished config can still be persisted.
-		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
-			text: t('common.cancel'),
-		}).addEventListener('click', () => this.close());
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
-			text: t('common.save'),
-		}).addEventListener('click', () => {
-			this.onSave({
-				url: this.config.url.trim(),
-				zoom: this.config.zoom,
-			});
-			this.close();
-		});
-
 		window.setTimeout(() => this.urlInput?.focus(), 0);
+	}
+
+	/** Saving does not gate on a valid URL: the parser tolerates any string and
+	 *  the section renders a configure-me empty state, so a half-finished
+	 *  config can still be persisted. */
+	protected submit(): void {
+		this.onSave({
+			url: this.config.url.trim(),
+			zoom: this.config.zoom,
+		});
+		this.close();
 	}
 
 	/** Live URL validation line (same classes as the Dataview modal's). */
@@ -119,9 +101,5 @@ export class WebConfigModal extends Modal {
 			this.errorEl.addClass('is-error');
 			this.errorEl.createSpan({ text: t('web.invalidUrl') });
 		}
-	}
-
-	onClose(): void {
-		this.contentEl.empty();
 	}
 }

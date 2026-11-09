@@ -1,7 +1,7 @@
-import { App, Modal } from 'obsidian';
+import type { App } from 'obsidian';
 import type { LibraryConfig } from './types';
 import { t } from './i18n';
-import { applyModalTheme } from './modal-theme';
+import { SectionConfigModal } from './section/config-modal';
 import { ExcludeFoldersEditor } from './exclude-folders-editor';
 
 /**
@@ -11,9 +11,11 @@ import { ExcludeFoldersEditor } from './exclude-folders-editor';
  * `libraryConfig.excludeFolders` — the same field the all-tasks and calendar
  * sections use — so the parser round-trips it with no extra handling.
  */
-export class MediaConfigModal extends Modal {
+export class MediaConfigModal extends SectionConfigModal {
 	private readonly existing: LibraryConfig | undefined;
 	private readonly onSave: (config: LibraryConfig) => void;
+	private excludeEditor: ExcludeFoldersEditor | null = null;
+	private includeEditor: ExcludeFoldersEditor | null = null;
 
 	constructor(
 		app: App,
@@ -25,69 +27,44 @@ export class MediaConfigModal extends Modal {
 		this.onSave = onSave;
 	}
 
-	onOpen(): void {
-		const { contentEl, containerEl } = this;
-		contentEl.empty();
-		contentEl.addClass('dashboard-library-config-modal');
-		containerEl.addClass('modal--dashboard');
-		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		applyModalTheme(containerEl);
+	protected title(): string {
+		return t('media.configure');
+	}
 
-		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
-
-		// Header
-		const header = container.createDiv({ cls: 'dashboard-modal-header' });
-		header.createDiv({ cls: 'dashboard-modal-title', text: t('media.configure') });
-
-		// Body
-		const body = container.createDiv({ cls: 'dashboard-modal-body' });
-
+	protected renderBody(body: HTMLElement): void {
 		const excludeSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		excludeSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('exclude.folders') });
 		excludeSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('exclude.foldersHint') });
-		const excludeEditor = new ExcludeFoldersEditor(this.app, excludeSection, this.existing?.excludeFolders ?? []);
+		this.excludeEditor = new ExcludeFoldersEditor(this.app, excludeSection, this.existing?.excludeFolders ?? []);
 
 		// Display scope: when non-empty, only files under these folders reach
 		// the section (excludes still subtract within it); empty = whole vault.
 		const includeSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		includeSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('media.includeFolders') });
 		includeSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('media.includeFoldersHint') });
-		const includeEditor = new ExcludeFoldersEditor(this.app, includeSection, this.existing?.includeFolders ?? [], {
+		this.includeEditor = new ExcludeFoldersEditor(this.app, includeSection, this.existing?.includeFolders ?? [], {
 			placeholder: t('media.includeFolderPlaceholder'),
 		});
 
-		// Footer
-		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
-			text: t('common.cancel'),
-		}).addEventListener('click', () => this.close());
-
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
-			text: t('common.save'),
-		}).addEventListener('click', () => {
-			// Media sections only consume excludeFolders; keep a complete
-			// LibraryConfig shape (viewMode/sortBy/... defaults) so the YAML
-			// round-trip never writes `undefined` values.
-			const base = this.existing ?? {
-				filters: [],
-				viewMode: 'grid' as const,
-				sortBy: 'modified',
-				sortDesc: true,
-			};
-			const folders = excludeEditor.value;
-			const includes = includeEditor.value;
-			this.onSave({
-				...base,
-				excludeFolders: folders.length > 0 ? folders : undefined,
-				includeFolders: includes.length > 0 ? includes : undefined,
-			});
-			this.close();
-		});
 	}
 
-	onClose(): void {
-		this.contentEl.empty();
+	/** Media sections only consume exclude/includeFolders; keep a complete
+	 *  LibraryConfig shape (viewMode/sortBy/... defaults) so the YAML
+	 *  round-trip never writes `undefined` values. */
+	protected submit(): void {
+		const base = this.existing ?? {
+			filters: [],
+			viewMode: 'grid' as const,
+			sortBy: 'modified',
+			sortDesc: true,
+		};
+		const folders = this.excludeEditor?.value ?? [];
+		const includes = this.includeEditor?.value ?? [];
+		this.onSave({
+			...base,
+			excludeFolders: folders.length > 0 ? folders : undefined,
+			includeFolders: includes.length > 0 ? includes : undefined,
+		});
+		this.close();
 	}
 }

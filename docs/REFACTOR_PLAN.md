@@ -282,7 +282,11 @@ renderSectionState(el, { kind: 'loading' | 'empty' | 'error'; text: string; hint
 > - ✅ 已迁移：dataview（空/扫描/错误三态）、web、rss 未配置态、pipeline 未配置、pm 未配置、skills 空态（compact 变体，保留 `grid-column: 1 / -1`）、folder 未配置。
 > - ✅ 旧根类名作为附加类保留（`.dashboard-dataview-empty`、`.dashboard-skillsec-empty` 等），CSS 里布局类（grid span、flex 增长）继续生效；视觉规则集中到 `styles.css` 末尾一个新块。
 > - ✅ 契约测试 `verify-section-state`（形状/顺序/紧凑变体/按钮冒泡/旧类保留/folder 真渲染/旧子类名零残留）。
-> - ⬜ 遗留：`dashboard-library-empty` 这类纯文本空态（约 19 处，含弹窗内的列表空态）与 `dashboard-rss-empty` 尚未迁移；22 个配置弹窗基类、9 个 `updateXxxConfig` 合并未开始。
+> - ✅ 切片 B `SectionConfigModal`（`src/section/config-modal.ts`）：弹窗外壳收成一个抽象基类——contentEl/containerEl 类、`applyModalTheme`、`.dashboard-modal` 框架、标题、body、footer（取消/保存）、`onClose` 清理全部由基类完成；子类只写 `title() / renderBody() / submit()`，可覆写 `sizeClass / contentClass / saveLabel / buildFooter`。
+> - ✅ footer 在 body **之前**构建、但排在 body **之后**的 DOM 位置：需要拿 `confirmBtn` 做校验禁用的弹窗（rss 的 URL 校验）在首次渲染时就能拿到按钮。
+> - ✅ 已迁移 4 个：web / rss / media / dataview（覆盖全部 data + media 类配置弹窗）。rss 的 `trySave` 收敛为 `submit()` 并复用基类的 `confirmBtn`。
+> - ✅ 契约测试 `verify-section-config-modal`（外壳/重复打开不叠 DOM/保存与取消接线/footer 先于 body/变体与自定义按钮/零残留）。
+> - ⬜ 遗留：`dashboard-library-empty` 这类纯文本空态（约 19 处，含弹窗内的列表空态）与 `dashboard-rss-empty` 尚未迁移；folder / notes / library / pipeline / pm / skills / weread 这 7 个 section 配置弹窗仍在手写外壳；9 个 `updateXxxConfig` 合并未开始。
 
 **验收**：视觉零回归（截图对比关键卡片空态）；`verify-*-config` 全绿。
 

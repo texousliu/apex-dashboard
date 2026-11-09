@@ -1,8 +1,8 @@
-import { App, Modal } from 'obsidian';
+import type { App } from 'obsidian';
 import type { DataviewConfig } from './types';
 import { t } from './i18n';
 import { checkSyntax } from './dql';
-import { applyModalTheme } from './modal-theme';
+import { SectionConfigModal } from './section/config-modal';
 import { ExcludeFoldersEditor } from './exclude-folders-editor';
 
 /** One-click query templates shown as chips in the config modal. Each is a
@@ -48,11 +48,12 @@ const SAMPLE_QUERIES: readonly SampleQuery[] = [
  * {@link DataviewConfig} (the raw DQL query + optional title). Provides live
  * syntax validation and one-click sample queries.
  */
-export class DataviewConfigModal extends Modal {
+export class DataviewConfigModal extends SectionConfigModal {
 	private config: DataviewConfig;
 	private readonly onSave: (config: DataviewConfig) => void;
 	private queryInput: HTMLTextAreaElement | null = null;
 	private errorEl: HTMLElement | null = null;
+	private excludeEditor: ExcludeFoldersEditor | null = null;
 
 	constructor(app: App, config: DataviewConfig, onSave: (config: DataviewConfig) => void) {
 		super(app);
@@ -60,21 +61,11 @@ export class DataviewConfigModal extends Modal {
 		this.config = { ...config };
 	}
 
-	onOpen(): void {
-		const { contentEl, containerEl } = this;
-		contentEl.empty();
-		contentEl.addClass('dashboard-library-config-modal');
-		containerEl.addClass('modal--dashboard');
-		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		applyModalTheme(containerEl);
+	protected title(): string {
+		return t('dataview.configure');
+	}
 
-		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
-
-		const header = container.createDiv({ cls: 'dashboard-modal-header' });
-		header.createDiv({ cls: 'dashboard-modal-title', text: t('dataview.configure') });
-
-		const body = container.createDiv({ cls: 'dashboard-modal-body' });
-
+	protected renderBody(body: HTMLElement): void {
 		// Sample query chips (inserted into the textarea on click).
 		const sampleSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		sampleSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('dataview.samples') });
@@ -128,7 +119,7 @@ export class DataviewConfigModal extends Modal {
 		const excludeSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		excludeSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('exclude.folders') });
 		excludeSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('exclude.foldersHint') });
-		const excludeEditor = new ExcludeFoldersEditor(this.app, excludeSection, this.config.excludeFolders ?? []);
+		this.excludeEditor = new ExcludeFoldersEditor(this.app, excludeSection, this.config.excludeFolders ?? []);
 
 		// Display settings: density / zebra stripes / row numbers.
 		const displaySection = body.createDiv({ cls: 'dashboard-library-config-section' });
@@ -187,22 +178,13 @@ export class DataviewConfigModal extends Modal {
 		});
 		sourceRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('dataview.showSource') });
 
-		// Footer.
-		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
-			text: t('common.cancel'),
-		}).addEventListener('click', () => this.close());
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
-			text: t('common.save'),
-		}).addEventListener('click', () => {
-			const folders = excludeEditor.value;
-			this.onSave({ ...this.config, excludeFolders: folders.length > 0 ? folders : undefined });
-			this.close();
-		});
-
 		window.setTimeout(() => this.queryInput?.focus(), 0);
+	}
+
+	protected submit(): void {
+		const folders = this.excludeEditor?.value ?? [];
+		this.onSave({ ...this.config, excludeFolders: folders.length > 0 ? folders : undefined });
+		this.close();
 	}
 
 	/** Run a syntax check and reflect the result in the validation line. */
@@ -224,9 +206,5 @@ export class DataviewConfigModal extends Modal {
 			this.errorEl.addClass('is-error');
 			this.errorEl.createSpan({ text: t('dataview.parseError', { message: result.error.message }) });
 		}
-	}
-
-	onClose(): void {
-		this.contentEl.empty();
 	}
 }

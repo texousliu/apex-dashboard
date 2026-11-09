@@ -6,10 +6,11 @@
  * broken source list.
  */
 
-import { App, Modal, Notice, setIcon } from 'obsidian';
+import { Notice, setIcon } from 'obsidian';
+import type { App } from 'obsidian';
 import type { RssConfig, RssFeedSource } from './types';
 import { t } from './i18n';
-import { applyModalTheme } from './modal-theme';
+import { SectionConfigModal } from './section/config-modal';
 import { attachPathPicker } from './path-picker-modal';
 import { showPromptDialog } from './prompt-dialog';
 import { isValidWebUrl, normalizeWebUrl } from './web-precheck';
@@ -23,7 +24,7 @@ import { uniquePath } from './quick-note-section';
  *  (expense-category-ui's add-option idiom). */
 const GROUP_ADD_OPTION = '__rss_add_group__';
 
-export class RssConfigModal extends Modal {
+export class RssConfigModal extends SectionConfigModal {
 	private feeds: RssFeedSource[];
 	private groups: string[];
 	private groupBy: 'none' | 'group' | 'feed';
@@ -35,7 +36,6 @@ export class RssConfigModal extends Modal {
 	private listEl: HTMLElement | null = null;
 	private groupsEl: HTMLElement | null = null;
 	private validationEl: HTMLElement | null = null;
-	private confirmBtn: HTMLButtonElement | null = null;
 
 	constructor(app: App, config: RssConfig, onSave: (config: RssConfig) => void, store?: RssStore) {
 		super(app);
@@ -47,21 +47,11 @@ export class RssConfigModal extends Modal {
 		this.store = store ?? getRssStore(app);
 	}
 
-	onOpen(): void {
-		const { contentEl, containerEl } = this;
-		contentEl.empty();
-		contentEl.addClass('dashboard-library-config-modal');
-		containerEl.addClass('modal--dashboard');
-		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		applyModalTheme(containerEl);
+	protected title(): string {
+		return t('rss.configTitle');
+	}
 
-		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
-
-		const header = container.createDiv({ cls: 'dashboard-modal-header' });
-		header.createDiv({ cls: 'dashboard-modal-title', text: t('rss.configTitle') });
-
-		const body = container.createDiv({ cls: 'dashboard-modal-body' });
-
+	protected renderBody(body: HTMLElement): void {
 		// Subscription sources.
 		const feedsSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		feedsSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('rss.configFeeds') });
@@ -172,16 +162,6 @@ export class RssConfigModal extends Modal {
 
 		folderSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('rss.configFolderHint') });
 
-		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
-			text: t('common.cancel'),
-		}).addEventListener('click', () => this.close());
-		this.confirmBtn = footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
-			text: t('common.save'),
-		});
-		this.confirmBtn.addEventListener('click', () => this.trySave());
 		this.validate();
 	}
 
@@ -410,7 +390,8 @@ export class RssConfigModal extends Modal {
 		}
 	}
 
-	private trySave(): void {
+	/** Save: drop fully-empty rows, normalise URLs, dedupe groups. */
+	protected submit(): void {
 		if (this.confirmBtn?.disabled) return;
 		const feeds = this.feeds
 			.map(feed => ({
@@ -428,9 +409,5 @@ export class RssConfigModal extends Modal {
 			...(this.groupBy !== 'group' ? { groupBy: this.groupBy } : {}),
 		});
 		this.close();
-	}
-
-	onClose(): void {
-		this.contentEl.empty();
 	}
 }
