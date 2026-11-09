@@ -5,7 +5,7 @@ import type { DqlLink, DqlObject, DqlTask, DqlValue, Page, QueryResult, ResultRo
 import { t, getLocale } from './i18n';
 import { attachNoteHover } from './hover-preview';
 import { attachNoteJump, type NoteOpeners } from './note-jump';
-import { toggleTaskInFile } from './alltasks-scan';
+import { writeTaskToggle, type TaskToggleOutcome } from './task-toggle';
 import { buildPages, invalidatePath } from './dql/page-builder';
 import { executeDql } from './dql';
 import { coerceNumber, dqlCompare, formatDate, formatValue, kindOf, makeObject } from './dql/values';
@@ -432,10 +432,12 @@ export function makeTaskToggleHandler(
 		//    the list never claims a state the file does not have. The returned
 		//    promise keeps the checkbox disabled until the write settles, so one
 		//    row cannot queue two contradictory writes.
-		return commitTaskToggle(app, task, nextChecked).then(() => { /* settled */ }, (err: unknown) => {
-			console.error('[Dashboard] dataview task toggle failed:', err);
-			undo();
-			apply();
+		return commitTaskToggle(app, task, nextChecked).then((outcome) => {
+			if (outcome.error) {
+				console.error('[Dashboard] dataview task toggle failed:', outcome.error);
+				undo();
+				apply();
+			}
 		});
 	};
 }
@@ -457,20 +459,16 @@ function patchTaskChecked(pages: Page[], path: string, line: number, checked: bo
 	};
 }
 
-/** Write one TASK row's new state back to its note. The payload is cloned so
- *  the writer re-resolves `line` / `originalLine` against the file itself: the
- *  same row can be toggled back and forth without re-scanning. */
-export async function commitTaskToggle(app: App, task: DqlTask, nextChecked: boolean): Promise<boolean> {
-	if (task.line < 0) return false;
+/** Write one TASK row's new state back to its note, through the shared
+ *  serialized toggle queue (src/task-toggle.ts). The payload is cloned so the
+ *  writer re-resolves `line` / `originalLine` against the file itself: the
+ *  same row can be toggled back and forth without re-scanning. Resolves
+ *  (never rejects) — check `outcome.error` for the failure path. */
+export function commitTaskToggle(app: App, task: DqlTask, nextChecked: boolean): Promise<TaskToggleOutcome> {
+	if (task.line < 0) return Promise.resolve({ wrote: false });
 	const file = app.vault.getAbstractFileByPath(task.path);
-	if (!(file instanceof TFile)) return false;
-	const wrote = await toggleTaskInFile(
-		app,
-		{ ...task, file, mtime: file.stat.mtime, ctime: file.stat.ctime },
-		nextChecked,
-	);
-	if (wrote) invalidatePath(task.path);
-	return wrote;
+	if (!(file instanceof TFile)) return Promise.resolve({ wrote: false });
+	return writeTaskToggle(app, { ...task, file }, nextChecked);
 }
 
 function renderResult(

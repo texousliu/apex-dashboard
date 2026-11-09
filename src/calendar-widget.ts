@@ -1,17 +1,16 @@
-import { App, Notice, Platform, setIcon, TFile } from 'obsidian';
+import { App, Platform, setIcon, TFile } from 'obsidian';
 import { t } from './i18n';
 import type { DashboardSettings } from './types';
 import {
 	collectVaultTasks,
 	indexTasksByDay,
 	isCalendarRelevant,
-	toggleTaskInFile,
-	invalidatePath,
 	dateBucketOf,
 	type VaultTask,
 } from './alltasks-scan';
 import { renderMonthGrid, renderWeekGrid, mondayOf, taskDayTime, byDayTaskTime, appendDayOriginMark } from './calendar-grid';
 import { CalendarMonthModal, DayAgendaModal } from './calendar-modal';
+import { writeTaskToggle } from './task-toggle';
 import { applyModalTheme } from './modal-theme';
 import { renderTextWithLinks } from './renderer';
 
@@ -201,12 +200,9 @@ export function renderSidebarCalendar(
 	let hasLoaded = false;
 
 	const onToggle = async (task: VaultTask, nextChecked: boolean): Promise<void> => {
-		try {
-			await toggleTaskInFile(app, task, nextChecked);
-			invalidatePath(task.path);
-		} catch {
-			new Notice(t('alltasks.toggleFailed'));
-		}
+		// Shared serialized write (src/task-toggle.ts): note write + scan-cache
+		// invalidation + failure Notice all live there now.
+		await writeTaskToggle(app, task, nextChecked);
 	};
 
 	async function render(): Promise<void> {

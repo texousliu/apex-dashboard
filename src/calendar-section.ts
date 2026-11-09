@@ -1,4 +1,4 @@
-import { App, Menu, Notice, Platform, setIcon, TFile } from 'obsidian';
+import { App, Menu, Platform, setIcon, TFile } from 'obsidian';
 import { t } from './i18n';
 import type { DashboardSettings } from './types';
 import {
@@ -6,17 +6,16 @@ import {
 	collectVaultTasks,
 	filterTasksByDay,
 	indexTasksByDay,
-	invalidatePath,
 	isCalendarRelevant,
 	tasksSnapshotSignature,
 	toIsoDate,
-	toggleTaskInFile,
 	type CalendarTaskFilter,
 	type VaultTask,
 } from './alltasks-scan';
 import { renderMonthGrid, renderWeekTimeGrid, mondayOf } from './calendar-grid';
 import { DayAgendaModal, readCalendarTaskFilter, writeCalendarTaskFilter } from './calendar-modal';
 import { closeDayPreview, scheduleDayPreview } from './calendar-widget';
+import { writeTaskToggle } from './task-toggle';
 
 /** Per-section reload functions keyed by the section's host element, so vault
  *  task changes refresh the grid in place (re-scan + re-render into the live
@@ -170,13 +169,10 @@ export function renderCalendarSection(
 	}
 
 	const onToggle = async (task: VaultTask, nextChecked: boolean): Promise<void> => {
-		try {
-			await toggleTaskInFile(app, task, nextChecked);
-			invalidatePath(task.path);
-		} catch {
-			new Notice(t('alltasks.toggleFailed'));
-			return;
-		}
+		// Shared serialized write (src/task-toggle.ts): writes the note,
+		// invalidates the scan cache, and shows the failure Notice itself.
+		const outcome = await writeTaskToggle(app, task, nextChecked);
+		if (outcome.error) return;
 		// Optimistic flip; a rescan follows via scheduleGridRefresh (the
 		// agenda always nudges onTaskWritten right after, and the vault-event
 		// debounce re-scans for the truth). An immediate renderGrid here used
