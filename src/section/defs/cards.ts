@@ -9,7 +9,6 @@ registerSection({
 	// `memo` / `todo` are the retired names for this type; parse migrates them,
 	// the aliases also cover hand-built legacy columns.
 	aliases: ['memo', 'todo'],
-	holdsCards: true,
 	picker: [{ type: 'sticky', icon: 'layers', labelKey: 'renderer.typeSticky', order: 10 }],
 	headerActions(ctx) {
 		ctx.buttons.add({
@@ -36,7 +35,6 @@ registerSection({
 	types: ['projects'],
 	// `notes` is the value older boards were written with.
 	aliases: ['notes'],
-	holdsCards: true,
 	picker: [{ type: 'projects', icon: 'layout-grid', labelKey: 'renderer.typeNotes', order: 40 }],
 	headerActions(ctx) {
 		ctx.buttons.addCard();
@@ -54,7 +52,6 @@ registerSection({
  *  their layout. */
 registerSection({
 	types: ['dashboard', 'alltasks'],
-	holdsCards: true,
 	headerActions(ctx) {
 		ctx.buttons.addCard();
 		ctx.buttons.remove();

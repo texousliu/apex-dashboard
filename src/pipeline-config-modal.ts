@@ -126,7 +126,10 @@ export class PipelineConfigModal extends SectionConfigModal {
 		fieldRow.createDiv({ cls: 'dashboard-library-config-inline-label', text: t('pipeline.cfgStatusField') });
 		const fieldInput = fieldRow.createEl('input', {
 			cls: 'dashboard-media-filter-folder',
-			attr: { type: 'text', placeholder: 'status' },
+			// No placeholder: the inline label names the field and the input is
+			// pre-filled with the configured key. A lowercase placeholder here
+			// would also suggest a capitalised frontmatter key is wrong.
+			attr: { type: 'text' },
 		});
 		fieldInput.value = this.statusField;
 		fieldInput.addEventListener('change', () => {

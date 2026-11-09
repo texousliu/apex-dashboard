@@ -28,6 +28,12 @@ const rendererSrc = readFileSync('src/renderer.ts', 'utf-8');
 // The reminder chip moved to its own module (Phase 4); the row contract it
 // pins (a live path getter, never a frozen array) still has to hold.
 const reminderSrc = readFileSync('src/render/reminder-popup.ts', 'utf-8');
+// Task rows moved out too (Phase 4) — the mirror/collapse/path contracts live
+// with the code that implements them, so the source assertions follow the move.
+const taskRowSrc = readFileSync('src/render/task-row.ts', 'utf-8');
+// "must not appear" assertions check both files: the task code moved, and a
+// negative check against one file silently passes once the code lives elsewhere.
+const taskCode = rendererSrc + taskRowSrc;
 const viewSrc = readFileSync('src/view.ts', 'utf-8');
 const sectionSrc = readFileSync('src/calendar-section.ts', 'utf-8');
 const modalSrc = readFileSync('src/calendar-modal.ts', 'utf-8');
@@ -50,17 +56,17 @@ assert.ok(syncSrc.includes('private applyTaskToggle('),
 
 // 2. Renderer: in-place mirror for EVERY card. The mirror must re-stamp task
 //    paths after a behavior reorder (edit/drag handlers are path-keyed).
-assert.ok(rendererSrc.includes('function mirrorTaskToggleInPlace('),
-	'renderer hosts the in-place toggle mirror');
-assert.ok(!rendererSrc.includes('card.tasksFromDaily === true'),
+assert.ok(taskRowSrc.includes('function mirrorTaskToggleInPlace('),
+	'the task-row module hosts the in-place toggle mirror');
+assert.ok(!taskCode.includes('card.tasksFromDaily === true'),
 	'daily-linked cards no longer keep a loud toggle branch (its notify echo rebuilt the section per check — the flicker)');
-assert.ok(!/callbacks\.onCheckboxToggle\(/.test(rendererSrc),
+assert.ok(!/callbacks\.onCheckboxToggle\(/.test(taskCode),
 	'the loud checkbox callback is gone from the renderer');
-assert.ok(rendererSrc.includes('callbacks.onCheckboxToggleQuiet('),
+assert.ok(taskRowSrc.includes('callbacks.onCheckboxToggleQuiet('),
 	'every toggle routes through the quiet callback');
-assert.ok(rendererSrc.includes("row.dataset.taskPath = JSON.stringify(p.length === 1 ? [top] : [top, ...p.slice(1)])"),
+assert.ok(taskRowSrc.includes("row.dataset.taskPath = JSON.stringify(p.length === 1 ? [top] : [top, ...p.slice(1)])"),
 	'mirror re-stamps shifted task paths');
-assert.ok(rendererSrc.includes("'dashboard-task-text--done'"),
+assert.ok(taskRowSrc.includes("'dashboard-task-text--done'"),
 	'mirror updates the done styling in place');
 
 // 3. View wiring: the quiet callback routes to the quiet sync method.
@@ -137,17 +143,17 @@ assert.ok(modalSrc.includes('private renderedTasks: VaultTask[] = []'),
 // A handler that kept the array it was rendered with therefore pointed at
 // whatever task now occupied that slot: a few clicks in a row toggled the WRONG
 // notes, and the wrong checkboxes got written to disk.
-assert.ok(rendererSrc.includes('export function readTaskPath(row: HTMLElement, fallback: readonly number[])'),
-	'the renderer exposes a live path reader');
-assert.ok(rendererSrc.includes('const currentPath = (): number[] => readTaskPath(item, initialPath);'),
+assert.ok(taskRowSrc.includes('export function readTaskPath(row: HTMLElement, fallback: readonly number[])'),
+	'the task-row module exposes a live path reader');
+assert.ok(taskRowSrc.includes('const currentPath = (): number[] => readTaskPath(item, initialPath);'),
 	'every task row resolves its path through the live reader');
-assert.ok(!/callbacks\.onCheckboxToggleQuiet\(card\.id, path,/.test(rendererSrc),
+assert.ok(!/callbacks\.onCheckboxToggleQuiet\(card\.id, path,/.test(taskCode),
 	'the checkbox no longer passes the render-time path');
-assert.ok(!/callbacks\.onTaskEdit\(card\.id, path,/.test(rendererSrc)
-	&& !/callbacks\.onTaskDelete\(card\.id, path\)/.test(rendererSrc)
-	&& !/callbacks\.onTaskToggleCollapse\(card\.id, path\)/.test(rendererSrc),
+assert.ok(!/callbacks\.onTaskEdit\(card\.id, path,/.test(taskCode)
+	&& !/callbacks\.onTaskDelete\(card\.id, path\)/.test(taskCode)
+	&& !/callbacks\.onTaskToggleCollapse\(card\.id, path\)/.test(taskCode),
 	'edit / delete / collapse read the current path too (all are path-keyed)');
-assert.ok(rendererSrc.includes('const toggledPath = currentPath();'),
+assert.ok(taskRowSrc.includes('const toggledPath = currentPath();'),
 	'the toggle resolves ONE path per click so the DOM reorder and the model update agree');
 assert.ok(reminderSrc.includes('pathOf: () => number[],'),
 	'the reminder button takes a getter instead of a frozen path');

@@ -78,10 +78,12 @@ function run(): void {
 
 	// 4. renderer/view wiring — the gear opens the config dialog, which saves
 	//    all three settings in one updateCard write.
-	const rendererSrc = readFileSync('src/renderer.ts', 'utf-8');
-	assert.ok(rendererSrc.includes("t('renderer.taskListBehavior')"),
+	// The card chrome moved to render/card.ts in Phase 4; the gear contract
+	// follows it.
+	const cardSrc = readFileSync('src/render/card.ts', 'utf-8');
+	assert.ok(cardSrc.includes("t('renderer.taskListBehavior')"),
 		'task cards render the behavior config button');
-	assert.ok(rendererSrc.includes('new TaskCardConfigModal(app, card'),
+	assert.ok(cardSrc.includes('new TaskCardConfigModal(app, card'),
 		'config button opens the settings dialog');
 	const modalSrc = readFileSync('src/task-card-config-modal.ts', 'utf-8');
 	assert.ok(modalSrc.includes("['stay', 'end', 'afterUnfinished']"),

@@ -158,9 +158,10 @@ async function main(): Promise<void> {
 	{
 		const modal = await import('node:fs').then(fs => fs.readFileSync('src/task-card-config-modal.ts', 'utf8'));
 		assert.ok(modal.includes("t('taskConfig.headingLevel')"), '6a: dialog exposes the heading level');
-		const view = await import('node:fs').then(fs => fs.readFileSync('src/view.ts', 'utf8'));
-		assert.ok(view.includes('dailyBlockHeading(title, card.dailyHeadingLevel ?? 3)'), '6b: save-to-daily uses the level');
-		assert.ok(view.includes('retitleCardBlock(this.app'), '6c: level changes move the existing block');
+		// The save flow moved to view/task-writes.ts (Phase 5).
+		const flow = await import('node:fs').then(fs => fs.readFileSync('src/view/task-writes.ts', 'utf8'));
+		assert.ok(flow.includes('dailyBlockHeading(title, card.dailyHeadingLevel ?? 3)'), '6b: save-to-daily uses the level');
+		assert.ok(flow.includes('retitleCardBlock(host.app'), '6c: level changes move the existing block');
 		const sync = await import('node:fs').then(fs => fs.readFileSync('src/sync.ts', 'utf8'));
 		assert.ok(sync.includes('card.dailyHeadingLevel ?? 3'), '6d: mirror writes use the level');
 	}

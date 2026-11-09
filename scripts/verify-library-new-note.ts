@@ -552,10 +552,13 @@ async function main(): Promise<void> {
 		const modalSrc = readFileSync('src/library-config-modal.ts', 'utf-8');
 		assert.ok(modalSrc.includes("t('library.newNoteOpenMode')"), 'config dialog hosts the open-mode select');
 		assert.ok(modalSrc.includes("newNoteOpenMode: this.config.newNoteOpenMode === 'popover' ? 'popover' : undefined"), 'save keeps only the popover opt-in');
+		// The creation flow moved to view/new-note.ts (Phase 5); the in-place
+		// section swap it calls still lives on the view, so both files are read.
+		const flowSrc = readFileSync('src/view/new-note.ts', 'utf-8');
+		assert.ok(flowSrc.includes("column.libraryConfig?.newNoteOpenMode === 'popover'"), 'view opens the popover only on the opt-in');
+		assert.ok(flowSrc.includes('void refreshSectionAfterCreate(host, column.name, file)'), 'creation schedules the explicit section refresh');
+		assert.ok(flowSrc.includes('async function refreshSectionAfterCreate'), 'the refresh waits for metadata indexing');
 		const viewSrc = readFileSync('src/view.ts', 'utf-8');
-		assert.ok(viewSrc.includes("column.libraryConfig?.newNoteOpenMode === 'popover'"), 'view opens the popover only on the opt-in');
-		assert.ok(viewSrc.includes('void this.refreshSectionAfterCreate(column.name, file)'), 'creation schedules the explicit section refresh');
-		assert.ok(viewSrc.includes('private async refreshSectionAfterCreate'), 'the refresh waits for metadata indexing');
 
 		// Sort/f config changes refresh the section in place; the immersive
 		// swap must carry the full pinned height triple (min/max/height), not

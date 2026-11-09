@@ -6,7 +6,7 @@
  *    `newNoteOpenMode: tab` metadata line and parses back to 'tab'.
  * 2. Default: 'popover' (and any unknown value) stays UNPERSISTED — no
  *    metadata line, parses back to undefined.
- * 3. view.ts wiring: handleCardNewNote opens the popover by default
+ * 3. flow wiring: cardNewNote opens the popover by default
  *    (openNotePopover) and only the explicit 'tab' goes to a real tab.
  *
  * Run: `npm run test:card-open-mode`
@@ -57,13 +57,14 @@ function run(): void {
 	const junkMd = serialize(withCard(undefined)).replace('### Reading list', '### Reading list\nnewNoteOpenMode: banana');
 	assert.equal(parse(junkMd).columns[0]!.cards[0]!.newNoteOpenMode, undefined, '2b: unknown value → undefined');
 
-	// 3. view.ts wiring.
-	const view = readFileSync('src/view.ts', 'utf8');
-	const idx = view.indexOf('private async handleCardNewNote');
-	const body = view.slice(idx, idx + 3200);
-	assert.ok(body.includes("card.newNoteOpenMode === 'tab'"), '3: handleCardNewNote consults the card config');
-	assert.ok(body.includes('this.openNotePopover(file)'), '3: default path opens the in-dashboard popover editor');
-	assert.ok(body.includes("this.app.workspace.getLeaf('tab').openFile(file)"), '3: tab path opens a real editor tab');
+	// 3. Flow wiring (the card flow lives in view/new-note.ts, Phase 5).
+	const flow = readFileSync('src/view/new-note.ts', 'utf8');
+	const idx = flow.indexOf('export async function cardNewNote');
+	assert.ok(idx > 0, '3: cardNewNote is exported from the flow module');
+	const body = flow.slice(idx, idx + 3200);
+	assert.ok(body.includes("card.newNoteOpenMode === 'tab'"), '3: cardNewNote consults the card config');
+	assert.ok(body.includes('host.openNotePopover(file)'), '3: default path opens the in-dashboard popover editor');
+	assert.ok(body.includes("host.app.workspace.getLeaf('tab').openFile(file)"), '3: tab path opens a real editor tab');
 	const modal = readFileSync('src/card-edit-modal.ts', 'utf8');
 	assert.ok(modal.includes("t('cardEdit.newNoteOpenMode')"), '3: card edit modal exposes the config dropdown');
 

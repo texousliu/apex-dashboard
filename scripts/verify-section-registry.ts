@@ -34,6 +34,7 @@ import {
 	registeredSections,
 	resolveSection,
 	sectionPickerOptions,
+	sectionScan,
 	type SectionContext,
 } from '../src/section';
 import { t } from '../src/i18n';
@@ -288,12 +289,14 @@ const isDelete = (btn: El): boolean => btn.hasClass('dashboard-section-delete-bt
 }
 
 {
-	const rendererSrc = readFileSync('src/renderer.ts', 'utf8');
+	// renderSection moved to render/section-frame.ts in Phase 4; the registry
+	// dispatch contract follows the code.
+	const frameSrc = readFileSync('src/render/section-frame.ts', 'utf8');
 	// Scope the check to renderSection: the card renderer legitimately still
 	// branches on the section type (sticky memo vs project cards).
-	const body = rendererSrc.slice(
-		rendererSrc.indexOf('export function renderSection('),
-		rendererSrc.indexOf('/** Draw the plain card list'),
+	const body = frameSrc.slice(
+		frameSrc.indexOf('export function renderSection('),
+		frameSrc.indexOf('/** Draw the plain card list'),
 	);
 	assert.ok(body.length > 0, '5: renderSection located');
 	assert.ok(!body.includes('if (sectionType ==='), '5: renderSection keeps no per-type if-chain');
@@ -305,6 +308,47 @@ const isDelete = (btn: El): boolean => btn.hasClass('dashboard-section-delete-bt
 	const addSrc = readFileSync('src/add-section-modal.ts', 'utf8');
 	assert.ok(addSrc.includes('sectionPickerOptions()'), '5: the chooser reads the registry');
 	assert.ok(!addSrc.includes("value: 'sticky'"), '5: and no longer hand-lists the types');
+}
+
+{
+	// 6. Scan policy — "which sections rescan the vault" is answered by the
+	//    definition, not by a Set in the refresh module. Before this, a new
+	//    scanning section had to be added in two places and silently never
+	//    refreshed when it wasn't.
+	const expected: Record<string, string> = {
+		library: 'files', folder: 'files', pipeline: 'files', pm: 'files',
+		images: 'media', videos: 'media',
+	};
+	for (const type of ['sticky', 'projects', 'dashboard', 'alltasks', 'dataview', 'web', 'rss', 'calendar', 'ticktick', 'weread', 'skills']) {
+		expected[type] = 'none';
+	}
+	for (const [type, scan] of Object.entries(expected)) {
+		assert.equal(sectionScan(type), scan, `6: ${type} scans ${scan}`);
+	}
+	// The retired ids inherit their definition's policy.
+	assert.equal(sectionScan('memo'), 'none', '6: retired ids resolve to their definition');
+	assert.equal(sectionScan('nope'), 'none', '6: unknown types never rescan');
+
+	const refreshSrc = readFileSync('src/render/section-refresh.ts', 'utf8');
+	assert.ok(!refreshSrc.includes('SCANNING_SECTION_TYPES'), '6: the scanning Set is gone');
+	assert.ok(!refreshSrc.includes('MEDIA_SECTION_TYPES'), '6: the media Set is gone');
+	assert.ok(refreshSrc.includes("sectionScan(getSectionType(column)) !== 'files'"), '6: scanning pass reads the registry');
+	assert.ok(refreshSrc.includes("sectionScan(getSectionType(column)) !== 'media'"), '6: media pass reads the registry');
+
+	// 7. Parser drift guard. The parse layer deliberately does NOT import the
+	//    render registry (parsing runs before any section is registered, and a
+	//    typo in a board file should not depend on the renderer), so its known-
+	//    type list is a hand copy. This is the copy's guard: a type added to one
+	//    side and not the other fails here instead of silently parsing as
+	//    "projects" (or being rejected as unknown).
+	const parserSrc = readFileSync('src/parser.ts', 'utf8');
+	const match = parserSrc.match(/const SECTION_TYPES = new Set\(\[([^\]]+)\]\);/);
+	assert.ok(match, '7: parser still declares its known-type list');
+	const parserTypes = [...match![1]!.matchAll(/'([a-z0-9]+)'/g)].map(m => m[1]!);
+	const registered = registeredSections()
+		.flatMap(def => [...def.types, ...(def.aliases ?? [])])
+		.sort();
+	assert.deepEqual(parserTypes.slice().sort(), registered, '7: parser types == registry types + aliases');
 }
 
 console.log('section registry: all scenarios OK');

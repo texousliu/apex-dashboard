@@ -143,11 +143,18 @@ function run(): void {
 	const r5d = mergeDailyTasksBlock(note5d, '### A', [task('x', true)]);
 	assert.ok(r5d.content.includes('### B\n- [ ] y\n\n### B\n- [ ] y2'), '5d: other heading\'s duplicates untouched');
 
-	// 6. view.ts wires saveTasksToDaily through the merge-then-prepend flow.
+	// 6. The save flow lives in view/task-writes.ts (Phase 5) and runs through
+	//    the merge-then-prepend path: merge into an existing block, prepend a
+	//    fresh one when the heading is absent, never replace the whole file.
+	const flow = readFileSync('src/view/task-writes.ts', 'utf8');
+	assert.ok(flow.includes('mergeDailyTasksBlock(raw, heading, card.tasks)'), '6: merge branch wired');
+	assert.ok(flow.includes('prependAfterFrontmatter(raw, block)'), '6: missing heading prepends a block');
+	assert.ok(flow.includes("import { dailyBlockHeading, mergeDailyTasksBlock } from '../daily-note-block'"), '6: helper imported');
+	assert.ok(!flow.includes('replaceDailyBlock'), '6: whole-block replace fully retired');
+	// The view keeps only the wiring, so a regression cannot hide behind a
+	// second copy of the flow.
 	const view = readFileSync('src/view.ts', 'utf8');
-	assert.ok(view.includes('mergeDailyTasksBlock(raw, heading, card.tasks)'), '6: merge branch wired');
-	assert.ok(view.includes("import { dailyBlockHeading, mergeDailyTasksBlock } from './daily-note-block'"), '6: helper imported');
-	assert.ok(!view.includes('replaceDailyBlock'), '6: whole-block replace fully retired');
+	assert.ok(!view.includes('mergeDailyTasksBlock'), '6: no second copy of the save flow in the view');
 
 	console.log('verify-daily-block: all checks passed');
 }

@@ -67,7 +67,9 @@ export class SkillCreateConfigModal extends SectionConfigModal {
 		const nameWrap = nameRow.createDiv({ cls: 'dashboard-skillsec-createcfg-namewrap' });
 		const nameInput = nameWrap.createEl('input', {
 			cls: 'dashboard-modal-input',
-			attr: { type: 'text', placeholder: 'skill-creator' },
+			// Sentence case because the UI-text lint requires it; the id the
+			// user types is still whatever they want (stored verbatim).
+			attr: { type: 'text', placeholder: 'Skill-creator' },
 		});
 		nameInput.value = this.skillName;
 		nameInput.addEventListener('input', () => {

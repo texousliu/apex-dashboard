@@ -17,6 +17,7 @@ function folderUnconfigured(ctx: { type: string; column: { libraryConfig?: { fol
 
 registerSection({
 	types: ['library', 'folder'],
+	scan: 'files',
 	picker: [
 		{ type: 'folder', icon: 'folder', labelKey: 'renderer.typeFolder', order: 20 },
 		{ type: 'library', icon: 'database', labelKey: 'renderer.typeLibrary', order: 30 },
@@ -46,6 +47,7 @@ registerSection({
  *  folder set through the same config route as library sections. */
 registerSection({
 	types: ['images', 'videos'],
+	scan: 'media',
 	picker: [
 		{ type: 'images', icon: 'image', labelKey: 'renderer.typeImages', order: 110 },
 		{ type: 'videos', icon: 'video', labelKey: 'renderer.typeVideos', order: 120 },

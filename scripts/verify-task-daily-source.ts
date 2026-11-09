@@ -233,9 +233,10 @@ async function main(): Promise<void> {
 		assert.ok(sync.includes('await this.refreshDailyLinkedTasks();'), '5e: load hydrates mirrored cards');
 		assert.ok(sync.includes("'taskCompleteBehavior' | 'tasksFromDaily'"), '5f: updateCard accepts the flag');
 
-		const renderer = readFileSync('src/renderer.ts', 'utf8');
-		assert.ok(renderer.includes('new TaskCardConfigModal(app, card'), '5g: the gear opens the config dialog');
-		assert.ok(renderer.includes('onTaskCardConfigSave'), '5h: dialog saves through the callback');
+		// The card chrome (and its gear) moved to render/card.ts in Phase 4.
+		const cardSrc = readFileSync('src/render/card.ts', 'utf8');
+		assert.ok(cardSrc.includes('new TaskCardConfigModal(app, card'), '5g: the gear opens the config dialog');
+		assert.ok(cardSrc.includes('onTaskCardConfigSave'), '5h: dialog saves through the callback');
 
 		const modal = readFileSync('src/task-card-config-modal.ts', 'utf8');
 		assert.ok(modal.includes("t('renderer.tasksFromDaily')"), '5h2: dialog hosts the daily-source toggle');

@@ -1,23 +1,19 @@
-import { Events, HoverParent, HoverPopover, ItemView, MarkdownView, Notice, Platform, setIcon, WorkspaceLeaf, TAbstractFile, TFile } from 'obsidian';
-import { nowMoment } from './datetime';
+import { HoverParent, HoverPopover, ItemView, MarkdownView, Notice, Platform, setIcon, WorkspaceLeaf, TFile } from 'obsidian';
 import type DashboardPlugin from './main';
 import type { AppWithCommands } from './obsidian-internal';
-import type { DashboardData, DashboardCard, DashboardColumn, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, SkillShortcut, DataviewConfig, ImmersiveItem, TaskCardConfig, TaskItem } from './types';
+import type { DashboardData, DashboardCard, QuickAction, BannerData, LibraryConfig, QuickNotePreset, PinnedNote, QuickCommand, SkillShortcut, DataviewConfig, ImmersiveItem, TaskCardConfig, TaskItem, SkillCreateConfig, WidgetBackground } from './types';
 import { SyncEngine } from './sync';
-import { renderDashboard, destroyAllCharts, renderSidebarWidgets, sidebarWidgetSignature, isStackedLayout, resolveEffectiveLayout, isImmersiveLayout, refreshSidebarWeatherWidget, renderSidebarWeekCalendar, renderSidebarPomodoro, renderSidebarReading, refreshScanningSections, refreshMediaSections, renderSection, refreshWeatherCards, invalidateScanningSectionSignatures } from './renderer';
+import { renderDashboard, destroyAllCharts, renderSidebarWidgets, sidebarWidgetSignature, isStackedLayout, resolveEffectiveLayout, isImmersiveLayout, renderSidebarWeekCalendar, renderSection, invalidateScanningSectionSignatures } from './renderer';
 import { renderImmersiveRoot, setupImmersiveDnD, attachImmersiveResizeHandle, attachImmersiveWidgetDelete, carryImmersivePlacement, refitImmersiveGrid, openImmersiveAddMenu, setupImmersiveTileMenu, stampedRects } from './immersive';
 import { defaultWidgetSize, displaceOverlappedBy, isImmersiveMode, widgetItemId } from './immersive-grid';
 import type { PreserveScope } from './preserve-scope';
-import { refreshSidebarTaskCalendar, renderSidebarCalendar } from './calendar-widget';
+import { refreshSidebarTaskCalendar } from './calendar-widget';
 import { refreshCalendarSections } from './calendar-section';
+import { refreshAlbumWidgets, destroyAlbumWidgets } from './album-widget';
 import { refreshOpenDayAgendas } from './calendar-modal';
 import { invalidatePath } from './alltasks-scan';
 import { refreshSectionsForPath } from './section-refresh';
-import { renderSidebarHabitWidget, refreshHabitWidget } from './habit-widget';
-import { renderSidebarExpenseWidget, refreshExpenseWidget } from './expense-widget';
-import { refreshAlbumWidgets, destroyAlbumWidgets } from './album-widget';
-import { destroyAnniversaryTimers, parseAnniversaryDate, anniversaryDateThisYear, lunarAnniversaryThisYear, lunarYearsBetween } from './anniversary-widget';
-import { refreshMusicWidget } from './music-widget';
+import { destroyAnniversaryTimers } from './anniversary-widget';
 import { getMusicService } from './music-service';
 import { getHabitService } from './habit-service';
 import { getExpenseService } from './expense-service';
@@ -31,17 +27,8 @@ import { QuickNoteConfigModal } from './quick-note-config-modal';
 import { getRecentDocs, renderRecentDocs } from './recent';
 import { renderQuickActions, AddActionModal, DocSearchModal } from './quick-actions';
 import { AgentPromptModal } from './agent-prompt-modal';
-import { rememberSkillNames } from './skill-registry';
 import { fireSkillDirect } from './skill-widget';
 import { SkillWidgetConfigModal } from './skill-widget-config-modal';
-import { PipelineConfigModal } from './pipeline-config-modal';
-import { PmConfigModal } from './pm-config-modal';
-import { PmNewModal } from './pm-new-modal';
-import { PmArchiveModal } from './pm-archive-modal';
-import { SkillSectionConfigModal } from './skill-section-config-modal';
-import { SkillCreateConfigModal } from './skill-create-config-modal';
-import { SkillImportModal } from './skill-import-modal';
-import { getSkillLibraryStore } from './skill-store';
 import { CountdownSettingsModal } from './countdown-modal';
 import { AlbumSettingsModal } from './album-settings-modal';
 import { AnniversarySettingsModal } from './anniversary-settings-modal';
@@ -52,75 +39,79 @@ import { clampSidebarWidth, clampWidgetUnitHeight } from './widget-span';
 import { CardEditModal } from './card-edit-modal';
 import { NotePopoverModal, revealMarkdownLine } from './note-popover-modal';
 import { showConfirmDialog } from './confirm-dialog';
-import { showPromptDialog } from './prompt-dialog';
-import { clearWeatherCache } from './weather-service';
-import { renderSidebarLunarWidget, loadHolidayData } from './lunar-widget';
+import { loadHolidayData } from './lunar-widget';
 import type { HolidayInfo } from './holiday-service';
-import { WidgetTypeModal, type WidgetType } from './widget-type-modal';
-import { StickyCardTypeModal } from './sticky-card-type-modal';
 import { AddSectionModal } from './add-section-modal';
-import { WeatherConfigModal } from './weather-config-modal';
-import { LibraryConfigModal } from './library-config-modal';
 import { FolderConfigModal, folderResultToLibraryConfig } from './folder-config-modal';
-import { buildNewNoteProps, sectionNewNoteFolder, createNoteWithProps, pickFolderFromMenu, sectionTemplatePaths, pickTemplateFromMenu } from './library-new-note';
+import { sectionTemplatePaths } from './library-new-note';
 import { NotesSectionConfigModal } from './notes-config-modal';
-import { DataviewConfigModal } from './dataview-config-modal';
-import { WebConfigModal } from './web-config-modal';
-import { RssConfigModal } from './rss-config-modal';
-import { MediaConfigModal } from './media-config-modal';
-import { WereadConfigModal } from './weread-config-modal';
 import { fetchTickTickProjects } from './ticktick-config-modal';
 import { TickTickFilterModal } from './ticktick-filter-modal';
-import { TrackerConfigModal } from './tracker-config-modal';
-import { TemplatePickerModal } from './template-modal';
 import { PomodoroService } from './pomodoro-service';
 import { createPomodoroMiniPanel, type PomodoroMiniPanel } from './pomodoro-mini-panel';
 import { createReadingMiniTimer, type ReadingMiniTimer } from './reading-mini-timer';
 import { ReadingService } from './reading-service';
-import { ReminderNoticeModal } from './reminder-notice';
-import { mergeManualStageOrder, parseNoteDue, reorderSkillSubset } from './pipeline-model';
-import { pmKeyDate } from './pm-model';
 import { t } from './i18n';
-import { archiveCompleted, serializeTasksForNote } from './task-tree';
-import { dailyBlockHeading, mergeDailyTasksBlock } from './daily-note-block';
-import { getOrCreateDailyNote, ensureFolder, getDailyNotesConfig } from './daily-notes';
+import { getDailyNotesConfig } from './daily-notes';
 import { readCardTasksFromToday, retitleCardBlock, todayDailyNote, writeCardTasksToToday } from './daily-task-source';
 import { createMemoNote } from './memo-note';
-import type { App } from 'obsidian';
 import { dashboardMarkdownPath, planDashboardUpdate, type DashboardUpdateSource } from './render-update';
 import { captureScrollStates, restoreScrollStates, captureRootScrollState, restoreRootScrollState } from './scroll-preserve';
-import { fileKind } from './file-types';
-
-interface DailyNotesOptions {
-	folder?: string;
-	format?: string;
-}
-
-interface DailyNotesPlugin {
-	enabled?: boolean;
-	instance?: { options?: DailyNotesOptions };
-}
-
-/** Read the core "Daily notes" plugin handle (folder/format live on instance.options). */
-function getDailyNotesPlugin(app: App): DailyNotesPlugin | undefined {
-	const internalPlugins = (app as unknown as {
-		internalPlugins?: { getPluginById?: (id: string) => DailyNotesPlugin | undefined };
-	}).internalPlugins;
-	return internalPlugins?.getPluginById?.('daily-notes');
-}
-
-/** Insert `block` right after the YAML frontmatter (or at the very top when there
- *  is none), preserving the original frontmatter text verbatim. */
-function prependAfterFrontmatter(md: string, block: string): string {
-	const fmMatch = md.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
-	if (fmMatch) {
-		const header = fmMatch[0];
-		const body = md.slice(header.length).replace(/^\s+/, '');
-		return body ? `${header}${block}\n\n${body}` : `${header}${block}\n`;
-	}
-	const body = md.replace(/^\s+/, '');
-	return body ? `${block}\n\n${body}` : `${block}\n`;
-}
+import { checkReminders } from './view/reminders';
+import { VaultWatcher } from './view/vault-watcher';
+import {
+	startReminderChecker as startReminderScan,
+	startDayRolloverChecker as startRolloverTick,
+	startWeatherRefresh as startWeatherTick,
+	stopWeatherRefresh as stopWeatherTick,
+	stopInterval,
+} from './view/watchdogs';
+import { renderScrollToTop } from './view/scroll-top';
+import { attachBoardEventDelegation, type BoardEventHost } from './view/board-events';
+import { refreshSectionsFor, type ChangeScopeHost } from './view/change-scope';
+import { archiveCompletedTasks, saveTasksToDaily, type TaskWriteHost } from './view/task-writes';
+import type { RenderCallbacks } from './types';
+import {
+	cardNewNote,
+	createNewNoteState,
+	libraryNewNote,
+	type NewNoteHost,
+	type NewNoteState,
+} from './view/new-note';
+import {
+	createMobilePanelState,
+	renderMobileActions,
+	renderMobileWidgetBar,
+	type MobilePanelHost,
+	type MobilePanelState,
+} from './view/mobile-panel';
+import {
+	refreshExpenseInPlace,
+	refreshHabitInPlace,
+	refreshLunarInPlace,
+	refreshMusicInPlace,
+	refreshPomodoroInPlace,
+	refreshReadingInPlace,
+	type WidgetRefreshHost,
+} from './view/widget-refresh';
+import {
+	openWidgetTypeModal,
+	openStickyCardTypeModal,
+	openWeatherConfigModal,
+	openTrackerConfigModal,
+	openTemplatePicker,
+	openLibraryConfigModal,
+	openDataviewConfigModal,
+	openWebConfigModal,
+	openRssConfigModal,
+	openSkillsConfigModal,
+	openPipelineConfigModal,
+	openPmConfigModal,
+	openMediaConfigModal,
+	openWereadConfigModal,
+	dispatchSkillCreate,
+	type ConfigModalHost,
+} from './view/config-modals';
 
 export const DASHBOARD_VIEW_TYPE = 'apex-dashboard-view';
 
@@ -131,26 +122,14 @@ export class DashboardView extends ItemView implements HoverParent {
 	private cleanupFns: Array<() => void> = [];
 	private dndCleanupFns: Array<() => void> = [];
 	private suppressNextRender = false;
-	private vaultEventRefs: Array<{ evt: Events; ref: unknown }> = [];
+	/** Vault events → debounced refresh fan-out (own file: view/vault-watcher.ts). */
+	private vaultWatcher: VaultWatcher;
 	private bannerStatsTimer: number | null = null;
+	/** Lazily built adapter for the sidebar widget refreshes. */
+	private widgetHost: WidgetRefreshHost | null = null;
+	/** Lazily built adapter for the board's section-event table. */
+	private boardEvents: BoardEventHost | null = null;
 	private bannerStatsEl: HTMLElement | null = null;
-	/** Vault changes accumulated across one debounce window: every changed
-	 *  file path (renames contribute old AND new), plus a broad flag for
-	 *  folder-level events whose own path carries no section-scope meaning.
-	 *  One shared trailing debounce fans them out — see scheduleVaultRefresh. */
-	private vaultChangePaths = new Set<string>();
-	private vaultChangeBroad = false;
-	/** Newly created .md paths whose first metadataCache index hasn't landed
-	 *  yet (see registerVaultListeners). */
-	private pendingMdIndexPaths = new Set<string>();
-	/** Md paths from the last flushed refresh batch: a metadataCache 'changed'
-	 *  arriving for one of these means the cache was NOT ready when the
-	 *  rebuild ran (frontmatter writes — pin/due/checklist — can index slower
-	 *  than the 500ms vault debounce), so that rebuild read stale data and a
-	 *  corrective pass is needed (see registerVaultListeners). */
-	private mdCacheLagPaths = new Set<string>();
-	private vaultRefreshTimer: number | null = null;
-	private readonly VAULT_REFRESH_DEBOUNCE = 500;
 	private readonly BANNER_STATS_DEBOUNCE = 800;
 	/** True after the first `metadataCache` `resolved` event corrected the
 	 *  banner stats following startup. One-shot to avoid repeat recomputes. */
@@ -159,7 +138,6 @@ export class DashboardView extends ItemView implements HoverParent {
 	private static readonly BANNER_QUOTE_ROTATION_MS = 60 * 60 * 1000; // 1 hour (on the hour)
 	// Poster cadence shared with the immersive background layer (banner.ts).
 	private static readonly BANNER_IMAGE_ROTATION_MS = BANNER_IMAGE_ROTATION_MS_SHARED;
-	private static readonly REMINDER_CHECK_MS = 60 * 1000; // 1 minute
 	private static readonly BANNER_QUOTE_OFFSET_MS = 60 * 60 * 1000; // offset by 1 hour from image
 	private reminderTimer: number | null = null;
 	private firedReminders = new Set<string>();
@@ -181,17 +159,27 @@ export class DashboardView extends ItemView implements HoverParent {
 	private pomodoroUnsubscribe: (() => void) | null = null;
 	private readingUnsubscribe: (() => void) | null = null;
 	private holidayData: Record<string, HolidayInfo> = {};
-	private mobileWidgetExpanded: 'pomodoro' | 'reading' | 'lunar' | 'calendar' | 'habit' | 'expense' | null = null;
-	private mobileWidgetTabsOpen: boolean = false;
-	private static readonly WEATHER_REFRESH_MS = 30 * 60 * 1000; // 30 minutes
 	private weatherRefreshTimer: number | null = null;
-	private static readonly DAY_ROLLOVER_CHECK_MS = 60 * 1000; // 1 minute
 	private dayRolloverTimer: number | null = null;
 	private lastRenderedDay = new Date().toDateString();
 	/** Sidebar widgets DOM detached from the previous render, re-attached when the
 	 *  widget signature (see sidebarWidgetSignature) is unchanged - so dashboard
 	 *  data mutations never rebuild the widgets. Null right after consumption. */
 	private sidebarWidgetsEl: HTMLElement | null = null;
+	/** Reentrancy guard for the two new-note flows (one per leaf: a second
+	 *  click while the title prompt is open must not stack a second dialog). */
+	private newNoteState: NewNoteState = createNewNoteState();
+	/** Lazily built adapter for view/new-note. */
+	private newNote: NewNoteHost | null = null;
+	/** Lazily built adapter for view/change-scope. */
+	private changeScope: ChangeScopeHost | null = null;
+	/** Lazily built adapter for view/task-writes. */
+	private taskWrites: TaskWriteHost | null = null;
+	/** Open/expanded state of the phone widget bar. Owned by the view (one per
+	 *  leaf) and handed to view/mobile-panel, which is the only writer. */
+	private mobilePanelState: MobilePanelState = createMobilePanelState();
+	/** Lazily built adapter for the phone chrome. */
+	private mobilePanel: MobilePanelHost | null = null;
 	private sidebarWidgetsSig: string | null = null;
 	/** Immersive layout: per-widget card elements detached from the previous
 	 *  grid, re-attached tile-by-tile when the widget signature is unchanged
@@ -221,6 +209,25 @@ export class DashboardView extends ItemView implements HoverParent {
 		this.sync = new SyncEngine(this.app, this.plugin.settings);
 		this.sync.onDataUpdate((data, source) => {
 			this.handleDataUpdate(data, source);
+		});
+		this.vaultWatcher = new VaultWatcher({
+			app: this.app,
+			vault: this.app.vault,
+			metadataCache: this.app.metadataCache,
+			dashboardPath: () => dashboardMarkdownPath(this.plugin.settings.dashboardFile),
+			invalidateSectionSignatures: () => invalidateScanningSectionSignatures(),
+			cancelPendingStats: () => this.cancelBannerStatsDebounce(),
+			targets: {
+				refreshRecentDocs: () => this.refreshRecentDocs(),
+				refreshSidebarCalendar: () => this.refreshSidebarCalendarNow(),
+				refreshOpenDayAgendas: () => refreshOpenDayAgendas(),
+				refreshDailyLinkedCards: () => { void this.refreshDailyLinkedCards(); },
+				refreshAlbumWidgets: () => this.refreshAlbumWidgetsNow(),
+				refreshBannerStats: () => this.debouncedRefreshBannerStats(),
+				refreshSections: (paths, broad, changedMd, changedMedia) => {
+					refreshSectionsFor(this.changeScopeHost(), paths, broad, changedMd, changedMedia);
+				},
+			},
 		});
 	}
 
@@ -533,150 +540,167 @@ export class DashboardView extends ItemView implements HoverParent {
 		// and before banner/main are created so the bg layer sits behind content.
 		applyAppearance(container, this.app, this.plugin.settings);
 
-		// The immersive layout replaces the whole banner/sidebar pipeline: the
-		// poster becomes a fixed full-bleed background, the week calendar and
-		// quick-notes bar move into a pinned top region, and widgets + sections
-		// mix in one free grid (still on a .dashboard-kanban host, so every
-		// kanban-rooted mechanism keeps working).
-		let boardHost: HTMLElement;
-		if (isImmersiveMode(layout)) {
-			const imm = renderImmersiveRoot({
-				container,
-				data,
-				settings: this.plugin.settings,
-				app: this.app,
-				plugin: this.plugin,
-				services: {
-					pomodoroService: this.pomodoroService ?? undefined,
-					readingService: this.readingService ?? undefined,
-					holidayData: this.holidayData ?? undefined,
-					onOpenNote: (file, line) => this.openNote(file, undefined, line),
-					renderQuickActions: (host) => this.renderQuickActionsWidget(host),
-				},
-				callbacks: this.createCallbacks(),
-				hoverParent: this,
-				reuseWidgets: preserveWidgets ? this.immWidgetEls : null,
-				getItems: () => this.immItems,
-				onEditBackground: () => new ImmersiveAppearanceModal(this.app, data, updates => {
-					void this.sync.updateImmersiveAppearance(updates).then(() => this.refresh());
-				}).open(),
-				onToggleEditing: () => {
-					const grid = container.querySelector<HTMLElement>('.dashboard-imm .dashboard-kanban');
-					const rects = grid ? stampedRects(grid) : new Map<string, { x: number; y: number; w: number; h: number }>();
-					const items = this.immItems.map(item => ({ ...item, ...(rects.get(item.id) ?? {}) }));
-					void this.sync.updateImmersiveEditing(this.data?.immersiveEditable === false, items);
-				},
-				registerCleanup: fn => this.cleanupFns.push(fn),
-			});
-			this.immItems = imm.items;
-			this.immWidgetEls = imm.widgetEls;
-			this.bannerStatsEl = null;
-			boardHost = imm.grid;
-			setupImmersiveDnD(imm.grid, () => this.immItems, next => this.commitImmersiveItems(next), this.dndCleanupFns);
-			setupImmersiveTileMenu(imm.grid, id => void this.removeImmersiveItem(id), this.dndCleanupFns);
-			this.attachImmersiveResizeHandles(imm.grid);
-		} else {
-			const bannerEl = renderBanner(
-				container,
-				data.banner,
-				() => this.openBannerEditModal(data),
-				this.app,
-			);
-			// Capture the stats panel (only present in stats mode) so vault changes
-			// can refresh it in place without a full re-render.
-			this.bannerStatsEl = bannerEl.querySelector('.dashboard-banner-stats');
-
-			this.renderMobileActions(bannerEl);
-			// Workspace switcher — banner, at the top-left corner of the stats
-			// view's CENTER column (the CSS mirrors the stats grid: 20px panel
-			// padding + 1/5 of the content width = the center column's left edge).
-			// Rebuilt every render so the active highlight always matches settings.
-			renderWorkspaceSwitcher(bannerEl, this.plugin);
-
-			// Sidebar pin — desktop-only, bottom-left corner of the banner. Moved
-			// here out of the quick-actions header because quick buttons became a
-			// hideable sidebar widget (the pin must survive hiding them).
-			this.renderBannerPinButton(bannerEl);
-
-			if (this.bannerCollapsed && window.innerWidth > 640) {
-				bannerEl.addClass('dashboard-banner--collapsed');
-			}
-			this.setupBannerBehavior(bannerEl);
-
-			// Banner quote rotation
-			this.setupBannerRotation(container, data.banner);
-
-			this.renderMobileWidgetBar(container);
-
-			const mainLayout = container.createDiv({ cls: 'dashboard-main' });
-
-			// Stacked layout: the quick-notes work bar (capture pill, today note,
-			// chips) moves OUT of the kanban to sit directly under the banner,
-			// above the widget strip — the kanban sits below the strip there, so
-			// its usual top slot would land the bar beneath the widgets. The side
-			// layout keeps rendering it inside the kanban as before.
-			//
-			// Scroll model: the bar stays PINNED, while the widget deck and the
-			// board scroll TOGETHER inside one region below it (the user wheels
-			// through widgets and sections as one page). The side layout keeps the
-			// old split (rail scrolls alone, board scrolls alone).
-			const stacked = isStackedLayout(this.plugin.settings, this.data);
-			if (stacked && this.plugin.settings.quickNotesEnabled) {
-				renderQuickNoteRegion(mainLayout, this.plugin.settings, this.createCallbacks(), this.app);
-			}
-			const contentHost = stacked
-				? mainLayout.createDiv({ cls: 'dashboard-scroll-region' })
-				: mainLayout;
-
-			// Rail state classes apply in BOTH layouts: in stacked mode they carry
-			// strip semantics instead (collapse to a slim bar, expand on click,
-			// pin keeps it open) via the [data-layout="stacked"] CSS overrides.
-			const sidebar = contentHost.createDiv({ cls: 'dashboard-sidebar' });
-			if (this.sidebarPinned) {
-				sidebar.addClass('dashboard-sidebar--pinned');
-			} else if (this.sidebarExpanded) {
-				sidebar.addClass('dashboard-sidebar--expanded');
-			} else {
-				sidebar.addClass('dashboard-sidebar--collapsed');
-			}
-			this.applySidebarSizing(sidebar);
-			this.renderSidebar(sidebar, container, preserveWidgets ? this.sidebarWidgetsEl : null);
-			this.setupSidebarBehavior(sidebar, container);
-
-			// Two-layer board: a NON-scrolling wrapper around the scrolling
-			// .dashboard-kanban. (The switcher itself lives on the banner; the split
-			// stays because it gives the scroll layer a clean, non-scrolling host.)
-			const kanbanWrapper = contentHost.createDiv({ cls: 'dashboard-kanban-wrapper' });
-			const kanban = kanbanWrapper.createDiv({ cls: 'dashboard-kanban' });
-			renderDashboard(kanban, data, this.createCallbacks(), this.app, this.plugin.settings, this, { skipQuickNotes: stacked });
-			boardHost = kanban;
-
-			// Section nav rail (right-edge dashes): one per section row, click
-			// to center it. Hidden under two sections; the rail's own DOM order
-			// matches the rendered rows (which match data.columns order).
-			// Phones skip the rail entirely (Rae): the touch rail had no reveal
-			// gesture and its capture-phase scroll listener (per-frame
-			// getBoundingClientRect across every section row) was a measurable
-			// scroll-jank source on mobile hardware.
-			if (!Platform.isMobile) {
-				renderSectionRail(
-					container,
-					kanban.querySelectorAll('.dashboard-section-row').length,
-					data.columns.map(col => col.name),
-				);
-			}
-		}
+		// The immersive layout and the side/stacked layout are two separate
+		// pipelines (own banner, own board host); each one is a method so this
+		// one stays a teardown → build → re-wire → restore sequence.
+		const boardHost = isImmersiveMode(layout)
+			? this.renderImmersiveBoard(container, data, preserveWidgets)
+			: this.renderClassicBoard(container, data, preserveWidgets);
 		// The immersive grid owns section geometry; its section grip becomes a
 		// whole-tile reorder handle (setupImmersiveDnD), so the side/stacked
 		// grip-reorder wiring is skipped there. Card drags stay armed in both.
 		setupDragAndDrop(boardHost, this.createCallbacks(), this.dndCleanupFns, { skipSectionGrip: isImmersiveMode(layout) });
-		this.attachBoardEventDelegation(boardHost);
+		this.wireBoardEvents(boardHost);
 
 		// Replay the pre-render scroll snapshot onto the rebuilt tree. Keys that
 		// no longer resolve (a genuinely new structure) are skipped inside the
-		// restore; the pendingScroll blocks below may then re-scroll on purpose.
+		// restore; the pending-scroll pass below may then re-scroll on purpose.
 		restoreRootScrollState(container, savedRootScroll);
 
+		this.applyPendingScrolls(container);
+		this.renderScrollToTop(container);
+	}
+
+	/** Immersive pipeline: no banner/sidebar split — a full-bleed poster, a
+	 *  pinned top region, and widgets + sections mixed in one free grid (still
+	 *  on a .dashboard-kanban host, so every kanban-rooted mechanism keeps
+	 *  working). Returns the grid, which acts as the board host. */
+	private renderImmersiveBoard(container: HTMLElement, data: DashboardData, preserveWidgets: boolean): HTMLElement {
+		const imm = renderImmersiveRoot({
+			container,
+			data,
+			settings: this.plugin.settings,
+			app: this.app,
+			plugin: this.plugin,
+			services: {
+				pomodoroService: this.pomodoroService ?? undefined,
+				readingService: this.readingService ?? undefined,
+				holidayData: this.holidayData ?? undefined,
+				onOpenNote: (file, line) => this.openNote(file, undefined, line),
+				renderQuickActions: (host) => this.renderQuickActionsWidget(host),
+			},
+			callbacks: this.createCallbacks(),
+			hoverParent: this,
+			reuseWidgets: preserveWidgets ? this.immWidgetEls : null,
+			getItems: () => this.immItems,
+			onEditBackground: () => new ImmersiveAppearanceModal(this.app, data, updates => {
+				void this.sync.updateImmersiveAppearance(updates).then(() => this.refresh());
+			}).open(),
+			onToggleEditing: () => {
+				const grid = container.querySelector<HTMLElement>('.dashboard-imm .dashboard-kanban');
+				const rects = grid ? stampedRects(grid) : new Map<string, { x: number; y: number; w: number; h: number }>();
+				const items = this.immItems.map(item => ({ ...item, ...(rects.get(item.id) ?? {}) }));
+				void this.sync.updateImmersiveEditing(this.data?.immersiveEditable === false, items);
+			},
+			registerCleanup: fn => this.cleanupFns.push(fn),
+		});
+		this.immItems = imm.items;
+		this.immWidgetEls = imm.widgetEls;
+		this.bannerStatsEl = null;
+		setupImmersiveDnD(imm.grid, () => this.immItems, next => this.commitImmersiveItems(next), this.dndCleanupFns);
+		setupImmersiveTileMenu(imm.grid, id => void this.removeImmersiveItem(id), this.dndCleanupFns);
+		this.attachImmersiveResizeHandles(imm.grid);
+		return imm.grid;
+	}
+
+	/** Side/stacked pipeline: banner → main → (optional scroll region) →
+	 *  sidebar rail + scrolling kanban. Returns the kanban as the board host. */
+	private renderClassicBoard(container: HTMLElement, data: DashboardData, preserveWidgets: boolean): HTMLElement {
+		const bannerEl = renderBanner(
+			container,
+			data.banner,
+			() => this.openBannerEditModal(data),
+			this.app,
+		);
+		// Capture the stats panel (only present in stats mode) so vault changes
+		// can refresh it in place without a full re-render.
+		this.bannerStatsEl = bannerEl.querySelector('.dashboard-banner-stats');
+
+		renderMobileActions(this.mobilePanelHost(), bannerEl);
+		// Workspace switcher — banner, at the top-left corner of the stats
+		// view's CENTER column (the CSS mirrors the stats grid: 20px panel
+		// padding + 1/5 of the content width = the center column's left edge).
+		// Rebuilt every render so the active highlight always matches settings.
+		renderWorkspaceSwitcher(bannerEl, this.plugin);
+
+		// Sidebar pin — desktop-only, bottom-left corner of the banner. Moved
+		// here out of the quick-actions header because quick buttons became a
+		// hideable sidebar widget (the pin must survive hiding them).
+		this.renderBannerPinButton(bannerEl);
+
+		if (this.bannerCollapsed && window.innerWidth > 640) {
+			bannerEl.addClass('dashboard-banner--collapsed');
+		}
+		this.setupBannerBehavior(bannerEl);
+
+		// Banner quote rotation
+		this.setupBannerRotation(container, data.banner);
+
+		renderMobileWidgetBar(this.mobilePanelHost(), container);
+
+		const mainLayout = container.createDiv({ cls: 'dashboard-main' });
+
+		// Stacked layout: the quick-notes work bar (capture pill, today note,
+		// chips) moves OUT of the kanban to sit directly under the banner,
+		// above the widget strip — the kanban sits below the strip there, so
+		// its usual top slot would land the bar beneath the widgets. The side
+		// layout keeps rendering it inside the kanban as before.
+		//
+		// Scroll model: the bar stays PINNED, while the widget deck and the
+		// board scroll TOGETHER inside one region below it (the user wheels
+		// through widgets and sections as one page). The side layout keeps the
+		// old split (rail scrolls alone, board scrolls alone).
+		const stacked = isStackedLayout(this.plugin.settings, data);
+		if (stacked && this.plugin.settings.quickNotesEnabled) {
+			renderQuickNoteRegion(mainLayout, this.plugin.settings, this.createCallbacks(), this.app);
+		}
+		const contentHost = stacked
+			? mainLayout.createDiv({ cls: 'dashboard-scroll-region' })
+			: mainLayout;
+
+		// Rail state classes apply in BOTH layouts: in stacked mode they carry
+		// strip semantics instead (collapse to a slim bar, expand on click,
+		// pin keeps it open) via the [data-layout="stacked"] CSS overrides.
+		const sidebar = contentHost.createDiv({ cls: 'dashboard-sidebar' });
+		if (this.sidebarPinned) {
+			sidebar.addClass('dashboard-sidebar--pinned');
+		} else if (this.sidebarExpanded) {
+			sidebar.addClass('dashboard-sidebar--expanded');
+		} else {
+			sidebar.addClass('dashboard-sidebar--collapsed');
+		}
+		this.applySidebarSizing(sidebar);
+		this.renderSidebar(sidebar, container, preserveWidgets ? this.sidebarWidgetsEl : null);
+		this.setupSidebarBehavior(sidebar, container);
+
+		// Two-layer board: a NON-scrolling wrapper around the scrolling
+		// .dashboard-kanban. (The switcher itself lives on the banner; the split
+		// stays because it gives the scroll layer a clean, non-scrolling host.)
+		const kanbanWrapper = contentHost.createDiv({ cls: 'dashboard-kanban-wrapper' });
+		const kanban = kanbanWrapper.createDiv({ cls: 'dashboard-kanban' });
+		renderDashboard(kanban, data, this.createCallbacks(), this.app, this.plugin.settings, this, { skipQuickNotes: stacked });
+
+		// Section nav rail (right-edge dashes): one per section row, click
+		// to center it. Hidden under two sections; the rail's own DOM order
+		// matches the rendered rows (which match data.columns order).
+		// Phones skip the rail entirely (Rae): the touch rail had no reveal
+		// gesture and its capture-phase scroll listener (per-frame
+		// getBoundingClientRect across every section row) was a measurable
+		// scroll-jank source on mobile hardware.
+		if (!Platform.isMobile) {
+			renderSectionRail(
+				container,
+				kanban.querySelectorAll('.dashboard-section-row').length,
+				data.columns.map(col => col.name),
+			);
+		}
+		return kanban;
+	}
+
+	/** Scroll to the card the caller just created (or the last card of a
+	 *  column, after "+" on a section header). Both settle after the pending id
+	 *  is cleared, so a re-render that lands the card late still wins. */
+	private applyPendingScrolls(container: HTMLElement): void {
 		// Scroll to newly added card
 		if (this.pendingScrollCardId) {
 			const cardEl = container.querySelector(`[data-card-id="${this.pendingScrollCardId}"]`);
@@ -701,8 +725,6 @@ export class DashboardView extends ItemView implements HoverParent {
 			}
 			this.pendingScrollToLastCardOfColumn = null;
 		}
-
-		this.renderScrollToTop(container);
 	}
 
 	/** Quick-buttons widget card builder — one implementation shared by the
@@ -755,288 +777,40 @@ export class DashboardView extends ItemView implements HoverParent {
 	/** Section-internal events bubbling to the board host (the kanban, shared
 	 *  by the side/stacked wrapper and the immersive grid). Registered once per
 	 *  render on whichever host the active layout produced. */
-	private attachBoardEventDelegation(board: HTMLElement): void {
-		// Library config event delegation
-		board.addEventListener('dashboard-library-config', ((e: CustomEvent) => {
-			// The gear ships the canonical type from the section registry, so a
-			// legacy column (e.g. sectionType: notes) routes like its modern
-			// equivalent instead of falling into the library fallback.
-			const { columnName, sectionType } = e.detail as { columnName: string; sectionType?: string };
-			const col = this.data?.columns.find(c => c.name === columnName);
-			const type = sectionType ?? col?.sectionType;
-			if (type === 'folder') {
-				this.openFolderConfigModal(columnName);
-			} else if (type === 'weread') {
-				this.openWereadConfigModal(columnName);
-			} else if (type === 'dataview') {
-				this.openDataviewConfigModal(columnName);
-			} else if (type === 'web') {
-				this.openWebConfigModal(columnName);
-			} else if (type === 'rss') {
-				this.openRssConfigModal(columnName);
-			} else if (type === 'pipeline') {
-				this.openPipelineConfigModal(columnName);
-			} else if (type === 'skills') {
-				this.openSkillsConfigModal(columnName);
-			} else if (type === 'pm') {
-				this.openPmConfigModal(columnName);
-			} else if (type === 'images' || type === 'videos') {
-				this.openMediaConfigModal(columnName);
-			} else if (type === 'projects') {
-				this.openNotesSectionConfigModal(columnName);
-			} else {
-				this.openLibraryConfigModal(columnName);
-			}
-		}) as EventListener);
+	/** Section-internal events bubbling to the board host (the kanban, shared
+	 *  by the side/stacked wrapper and the immersive grid). Registered once per
+	 *  render on whichever host the active layout produced; the event table
+	 *  itself lives in view/board-events.ts. */
+	private wireBoardEvents(board: HTMLElement): void {
+		attachBoardEventDelegation(this.boardEventHost(), board);
+	}
 
-		// RSS page-size change — dispatched from the section toolbar select.
-		board.addEventListener('dashboard-rss-page-size', ((e: CustomEvent) => {
-			const { columnName, pageSize } = e.detail as { columnName: string; pageSize: number };
-			const col = this.data?.columns.find(c => c.name === columnName);
-			if (col?.rssConfig && typeof pageSize === 'number') {
-				const next = { ...col.rssConfig, pageSize };
-				void this.sync.updateSectionConfig(columnName, 'rssConfig', next).then(() => {
-					this.refreshSectionInPlace(columnName);
-				});
-			}
-		}) as EventListener);
-
-		// Skills section view prefs (sort / page size / pinned) — the section
-		// dispatches partial prefs; they merge into skillsConfig and the
-		// section rebuilds in place with the new order.
-		board.addEventListener('dashboard-skills-prefs', ((e: CustomEvent) => {
-			const { columnName, prefs } = e.detail as { columnName: string; prefs: Partial<import('./types').SkillsSectionConfig> };
-			const col = this.data?.columns.find(c => c.name === columnName);
-			if (!col || col.sectionType !== 'skills' || !prefs) return;
-			const next = { ...col.skillsConfig, ...prefs };
-			// Undefined values from the section (back-to-default picks) must
-			// drop the key entirely so serialize stays idempotent.
-			for (const key of Object.keys(next) as Array<keyof typeof next>) {
-				if (next[key] === undefined) delete next[key];
-			}
-			void this.sync.updateSectionConfig(columnName, 'skillsConfig', next).then(() => {
-				this.refreshSectionInPlace(columnName);
-			});
-		}) as EventListener);
-
-		// Skills "new skill" button: the first click configures the creator
-		// skill (agent + name + template), later clicks go straight to the
-		// confirm dialog (directSend is an explicit opt-out).
-		board.addEventListener('dashboard-skills-create', ((e: CustomEvent) => {
-			const { columnName } = e.detail as { columnName: string };
-			const col = this.data?.columns.find(c => c.name === columnName);
-			if (!col || col.sectionType !== 'skills') return;
-			const cfg = col.skillsConfig?.createSkill;
-			if (cfg) {
-				this.dispatchSkillCreate(cfg);
-				return;
-			}
-			new SkillCreateConfigModal(this.app, this.plugin, undefined, saved => {
-				const fresh = this.data?.columns.find(c => c.name === columnName);
-				void (async () => {
-					await this.sync.updateSectionConfig(columnName, 'skillsConfig', { ...fresh?.skillsConfig, createSkill: saved });
-					await rememberSkillNames(this.plugin, saved.agent, [saved.skillName]);
-					this.dispatchSkillCreate(saved);
-				})();
-			}).open();
-		}) as EventListener);
-
-		// Skills import — the modal needs the plugin (custom folders CSV,
-		// remember-registry); the section only signals the intent.
-		board.addEventListener('dashboard-skills-import', ((e: CustomEvent) => {
-			const { columnName } = e.detail as { columnName: string };
-			const col = this.data?.columns.find(c => c.name === columnName);
-			if (!col || col.sectionType !== 'skills') return;
-			new SkillImportModal(this.app, {
-				foldersCsv: this.plugin.settings.skillSourceFolders ?? '',
-				defaultTargets: col.skillsConfig?.importTargets ?? [],
-				onSaveTargets: ids => {
-					// Fresh lookup: prefs may have changed while the modal was open.
-					const fresh = this.data?.columns.find(c => c.name === columnName);
-					void this.sync.updateSectionConfig(columnName, 'skillsConfig', { ...fresh?.skillsConfig, importTargets: ids });
-				},
-				onImported: (name, agents) => {
-					// Fresh skills surface immediately: rescan on next render
-					// and offer the name in every targeted agent's picker.
-					getSkillLibraryStore(this.app).markDirty();
-					for (const agent of agents) void rememberSkillNames(this.plugin, agent, [name]);
-					this.refreshSectionInPlace(columnName);
-				},
-			}).open();
-		}) as EventListener);
-
-		// Pipeline value-filter rail pick — persists into the section config
-		// and refreshes in place (the config change also busts the signature).
-		board.addEventListener('dashboard-pipeline-filter', ((e: CustomEvent) => {
-			const { columnName, filter } = e.detail as { columnName: string; filter?: { dim: string; value?: string } };
-			const col = this.data?.columns.find(c => c.name === columnName);
-			if (!col?.pipelineConfig) return;
-			const next = { ...col.pipelineConfig, filter };
-			void this.sync.updateSectionConfig(columnName, 'pipelineConfig', next).then(() => {
-				this.refreshSectionInPlace(columnName);
-			});
-		}) as EventListener);
-
-		// Pipeline card sort — native-menu pick persists and refreshes in place.
-		board.addEventListener('dashboard-pipeline-sort', ((e: CustomEvent) => {
-			const { columnName, sortBy } = e.detail as { columnName: string; sortBy?: 'ctime' | 'platform' | 'name' | 'manual' };
-			const col = this.data?.columns.find(c => c.name === columnName);
-			if (!col?.pipelineConfig) return;
-			const next = { ...col.pipelineConfig, sortBy };
-			void this.sync.updateSectionConfig(columnName, 'pipelineConfig', next).then(() => {
-				this.refreshSectionInPlace(columnName);
-			});
-		}) as EventListener);
-
-		board.addEventListener('dashboard-pipeline-manual-order', ((e: CustomEvent) => {
-			const { columnName, stageValue, orderedPaths } = e.detail as { columnName: string; stageValue: string; orderedPaths: string[] };
-			const col = this.data?.columns.find(c => c.name === columnName);
-			const config = col?.pipelineConfig;
-			if (!config || config.sortBy !== 'manual' || !Array.isArray(orderedPaths) || orderedPaths.length === 0) return;
-			// Slot-replacement merge: cards outside the emitted slice (filtered
-			// out by the rail or below the render limit) keep their saved slots
-			// instead of being demoted past the reordered ones.
-			const stageOrder = { ...config.stageOrder, [stageValue]: mergeManualStageOrder(config.stageOrder?.[stageValue] ?? [], orderedPaths) };
-			void this.sync.updateSectionConfig(columnName, 'pipelineConfig', { ...config, stageOrder }).then(() => this.refreshSectionInPlace(columnName));
-		}) as EventListener);
-
-		// Pipeline column width — dragged column edge persists per stage.
-		board.addEventListener('dashboard-pipeline-col-width', ((e: CustomEvent) => {
-			const { columnName, stageValue, width } = e.detail as { columnName: string; stageValue: string; width: number };
-			const col = this.data?.columns.find(c => c.name === columnName);
-			const config = col?.pipelineConfig;
-			if (!config || typeof width !== 'number') return;
-			const next = {
-				...config,
-				stages: config.stages.map(stage => stage.value === stageValue ? { ...stage, width } : stage),
-			};
-			void this.sync.updateSectionConfig(columnName, 'pipelineConfig', next);
-		}) as EventListener);
-
-		// Pipeline skill-button reorder (dragged on a card's foot): persist the
-		// new arrangement into pipelineConfig.skills and refresh in place so
-		// every card's foot row picks it up together.
-		board.addEventListener('dashboard-pipeline-skill-order', ((e: CustomEvent) => {
-			const { columnName, stageValue, scope, orderedIds } = e.detail as {
-				columnName: string;
-				stageValue: string;
-				scope: 'stage' | 'card';
-				orderedIds: string[];
-			};
-			const col = this.data?.columns.find(c => c.name === columnName);
-			const config = col?.pipelineConfig;
-			if (!config || !Array.isArray(orderedIds)) return;
-			const next = {
-				...config,
-				skills: reorderSkillSubset(config.skills, stageValue, scope, orderedIds),
-			};
-			void this.sync.updateSectionConfig(columnName, 'pipelineConfig', next).then(() => {
-				this.refreshSectionInPlace(columnName);
-			});
-		}) as EventListener);
-
-		// PM board edits land straight on the project note — refresh every pm
-		// section in place (the vault-event path is debounced; this is the
-		// instant feedback the board modal's write-through wants).
-		board.addEventListener('dashboard-pm-updated', (() => {
-			if (!this.data) return;
-			for (const col of this.data.columns) {
-				if (col.sectionType === 'pm') this.refreshSectionInPlace(col.name);
-			}
-		}));
-
-		// PM card pin toggle: the full pinned path list arrives — persist and
-		// refresh in place (pinned cards jump to the front).
-		board.addEventListener('dashboard-pm-pin', ((e: CustomEvent) => {
-			const { columnName, pinned } = e.detail as { columnName: string; pinned: string[] };
-			const col = this.data?.columns.find(c => c.name === columnName);
-			if (!col || col.sectionType !== 'pm' || !col.pmConfig || !Array.isArray(pinned)) return;
-			void this.sync.updateSectionConfig(columnName, 'pmConfig', { ...col.pmConfig, pinned }).then(() => {
-				this.refreshSectionInPlace(columnName);
-			});
-		}) as EventListener);
-
-		// PM view prefs (sort mode / grouped view) — merge into pmConfig.
-		board.addEventListener('dashboard-pm-prefs', ((e: CustomEvent) => {
-			const { columnName, prefs } = e.detail as { columnName: string; prefs: { sortMode?: 'name' | 'milestone' | 'keyDate'; groupView?: 'blocks' | 'kanban' } };
-			const col = this.data?.columns.find(c => c.name === columnName);
-			if (!col || col.sectionType !== 'pm' || !col.pmConfig || !prefs) return;
-			const next = { ...col.pmConfig, ...prefs };
-			for (const key of Object.keys(next) as Array<keyof typeof next>) {
-				if (next[key] === undefined) delete next[key];
-			}
-			void this.sync.updateSectionConfig(columnName, 'pmConfig', next).then(() => {
-				this.refreshSectionInPlace(columnName);
-			});
-		}) as EventListener);
-
-		// PM card drag reorder: the card list arrived in display order —
-		// persist it as pmConfig.order and refresh in place.
-		board.addEventListener('dashboard-pm-order', ((e: CustomEvent) => {
-			const { columnName, order } = e.detail as { columnName: string; order: string[] };
-			const col = this.data?.columns.find(c => c.name === columnName);
-			if (!col || col.sectionType !== 'pm' || !col.pmConfig || !Array.isArray(order)) return;
-			void this.sync.updateSectionConfig(columnName, 'pmConfig', { ...col.pmConfig, order }).then(() => {
-				this.refreshSectionInPlace(columnName);
-			});
-		}) as EventListener);
-
-		// PM section header's + button: open the new-project form for that
-		// column's config.
-		board.addEventListener('dashboard-pm-new', ((e: CustomEvent) => {
-			const { columnName } = e.detail as { columnName: string };
-			const col = this.data?.columns.find(c => c.name === columnName);
-			if (col?.sectionType === 'pm' && col.pmConfig) {
-				new PmNewModal(this.app, col.pmConfig).open();
-			}
-		}) as EventListener);
-
-		// PM section header's archive button: the archived-projects viewer.
-		board.addEventListener('dashboard-pm-archive', ((e: CustomEvent) => {
-			const { columnName } = e.detail as { columnName: string };
-			const col = this.data?.columns.find(c => c.name === columnName);
-			if (col?.sectionType === 'pm' && col.pmConfig) {
-				new PmArchiveModal(this.app, col.pmConfig).open();
-			}
-		}) as EventListener);
-
-		// Library/folder "new note" button — dispatched from the section toolbar.
-		board.addEventListener('dashboard-library-new-note', ((e: CustomEvent) => {
-			const { columnName, x, y } = e.detail as { columnName: string; x?: number; y?: number };
-			const pos = (typeof x === 'number' && typeof y === 'number') ? { x, y } : undefined;
-			void this.handleLibraryNewNote(columnName, pos);
-		}) as EventListener);
-
-		// TickTick view toggle (today/lists) — dispatched from header buttons.
-		board.addEventListener('dashboard-ticktick-view', ((e: CustomEvent) => {
-			const { columnName, view } = e.detail as { columnName: string; view: 'today' | 'lists' };
-			const col = this.data?.columns.find(c => c.name === columnName);
-			if (col) {
-				const config = col.ticktickConfig ?? { view: 'today' as const };
-				this.suppressNextRender = true;
-				void this.sync.updateSectionConfig(columnName, 'ticktickConfig', { ...config, view }).then(() => {
-					this.refreshSectionInPlace(columnName);
-				});
-			}
-		}) as EventListener);
-
-		// TickTick project filter (lists view).
-		board.addEventListener('dashboard-ticktick-filter', ((e: CustomEvent) => {
-			const { columnName } = e.detail as { columnName: string };
-			void this.openTickTickFilterModal(columnName);
-		}) as EventListener);
-
-		// TickTick project card resize (lists view).
-		board.addEventListener('dashboard-ticktick-resize', ((e: CustomEvent) => {
-			const { columnName, projectWidths } = e.detail as { columnName: string; projectWidths: Record<string, number> };
-			const col = this.data?.columns.find(c => c.name === columnName);
-			if (col?.ticktickConfig) {
-				this.suppressNextRender = true;
-				void this.sync.updateSectionConfig(columnName, 'ticktickConfig', { ...col.ticktickConfig, projectWidths }).then(() => {
-					this.refreshSectionInPlace(columnName);
-				});
-			}
-		}) as EventListener);
+	/** The view's side of `BoardEventHost`, built once — every member is a
+	 *  getter or a one-line forwarder, so an event always sees live state. */
+	private boardEventHost(): BoardEventHost {
+		this.boardEvents ??= {
+			app: this.app,
+			data: () => this.data,
+			sync: () => this.sync,
+			plugin: () => this.plugin,
+			refreshSectionInPlace: name => this.refreshSectionInPlace(name),
+			openLibraryConfigModal: name => this.openLibraryConfigModal(name),
+			openDataviewConfigModal: name => this.openDataviewConfigModal(name),
+			openWebConfigModal: name => this.openWebConfigModal(name),
+			openRssConfigModal: name => this.openRssConfigModal(name),
+			openSkillsConfigModal: name => this.openSkillsConfigModal(name),
+			openPipelineConfigModal: name => this.openPipelineConfigModal(name),
+			openPmConfigModal: name => this.openPmConfigModal(name),
+			openMediaConfigModal: name => this.openMediaConfigModal(name),
+			openWereadConfigModal: name => this.openWereadConfigModal(name),
+			dispatchSkillCreate: cfg => this.dispatchSkillCreate(cfg),
+			openFolderConfigModal: name => this.openFolderConfigModal(name),
+			openNotesSectionConfigModal: name => this.openNotesSectionConfigModal(name),
+			handleLibraryNewNote: (name, pos) => { void libraryNewNote(this.newNoteHost(), this.newNoteState, name, pos); },
+			openTickTickFilterModal: name => { void this.openTickTickFilterModal(name); },
+			suppressNextRender: () => { this.suppressNextRender = true; },
+		};
+		return this.boardEvents;
 	}
 
 	/** Corner resize grips + hover delete buttons for every current grid tile
@@ -1109,164 +883,6 @@ export class DashboardView extends ItemView implements HoverParent {
 		void this.sync.updateImmersive(next);
 	}
 
-	private renderMobileActions(bannerEl: HTMLElement): void {
-		const actions = bannerEl.createDiv({ cls: 'dashboard-mobile-actions' });
-
-		const linksBtn = actions.createEl('button', {
-			cls: 'dashboard-mobile-action-btn',
-			attr: { 'aria-label': t('mobile.quickActions') },
-		});
-		setIcon(linksBtn, 'zap');
-		linksBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			this.openMobileDrawer('quickActions');
-		});
-
-		const recentBtn = actions.createEl('button', {
-			cls: 'dashboard-mobile-action-btn',
-			attr: { 'aria-label': t('mobile.recent') },
-		});
-		setIcon(recentBtn, 'clock');
-		recentBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			this.openMobileDrawer('recent');
-		});
-
-		// On mobile, tapping right half of banner reveals the edit button
-		const overlay = bannerEl.querySelector('.dashboard-banner-overlay') as HTMLElement;
-		if (overlay) {
-			overlay.addEventListener('click', (e) => {
-				const rect = overlay.getBoundingClientRect();
-				const tapX = e.clientX - rect.left;
-				if (tapX > rect.width * 0.5) {
-					const editBtn = overlay.querySelector('.dashboard-banner-edit-btn') as HTMLElement;
-					if (editBtn) {
-						editBtn.addClass('dashboard-banner-edit-btn--mobile-visible');
-					}
-				}
-			});
-		}
-	}
-
-	private renderMobileWidgetBar(container: HTMLElement): void {
-		this.mobileWidgetTabsOpen = false;
-		this.mobileWidgetExpanded = null;
-
-		const bar = container.createDiv({ cls: 'dashboard-mobile-widget-bar' });
-
-		// Thin strip: collapsed state, tap to expand tabs
-		const strip = bar.createDiv({ cls: 'dashboard-mobile-widget-strip' });
-		strip.createDiv({ cls: 'dashboard-mobile-widget-strip-hint' });
-		strip.addEventListener('click', (e) => {
-			e.stopPropagation();
-			this.mobileWidgetTabsOpen = !this.mobileWidgetTabsOpen;
-			if (!this.mobileWidgetTabsOpen) {
-				this.mobileWidgetExpanded = null;
-			}
-			this.refreshMobileWidgetPanel(bar);
-		});
-
-		// Tab row: hidden by default, revealed by tapping strip
-		const tabs = bar.createDiv({ cls: 'dashboard-mobile-widget-tabs' });
-
-		// Rae: the phone carries NO quick-input tabs — mobile follows the
-		// quick-note bar's capture/search mode setting alone; the standalone
-		// widgets are a desktop-rail affordance.
-		const widgets: Array<{ key: 'pomodoro' | 'reading' | 'lunar' | 'calendar' | 'habit' | 'expense'; label: string; icon: string }> = [
-			{ key: 'lunar', label: t('mobile.lunar'), icon: 'moon' },
-			...(this.plugin.settings.widgetCalendarEnabled
-				? [{ key: 'calendar' as const, label: t('mobile.calendar'), icon: 'calendar' }]
-				: []),
-			{ key: 'pomodoro', label: t('mobile.pomodoro'), icon: 'hourglass' },
-			...(this.plugin.settings.widgetHabitEnabled
-				? [{ key: 'habit' as const, label: t('mobile.habit'), icon: 'check-circle-2' }]
-				: []),
-			...(this.plugin.settings.widgetExpenseEnabled
-				? [{ key: 'expense' as const, label: t('mobile.expense'), icon: 'wallet' }]
-				: []),
-			{ key: 'reading', label: t('mobile.reading'), icon: 'book-open' },
-		];
-
-		bar.createDiv({ cls: 'dashboard-mobile-widget-panel' });
-
-		for (const w of widgets) {
-			const btn = tabs.createEl('button', {
-				cls: 'dashboard-mobile-widget-btn',
-				attr: { 'aria-label': w.label },
-			});
-			setIcon(btn, w.icon);
-
-			btn.addEventListener('click', (e) => {
-				e.stopPropagation();
-				if (this.mobileWidgetExpanded === w.key) {
-					this.mobileWidgetExpanded = null;
-				} else {
-					this.mobileWidgetExpanded = w.key;
-				}
-				this.refreshMobileWidgetPanel(bar);
-			});
-
-			btn.dataset.widgetKey = w.key;
-		}
-
-		this.refreshMobileWidgetPanel(bar);
-	}
-
-	private refreshMobileWidgetPanel(bar: HTMLElement): void {
-		const strip = bar.querySelector('.dashboard-mobile-widget-strip');
-		const tabs = bar.querySelector('.dashboard-mobile-widget-tabs');
-		const panel = bar.querySelector<HTMLElement>('.dashboard-mobile-widget-panel');
-		if (!strip || !tabs || !panel) return;
-
-		// Toggle strip active state
-		strip.classList.toggle('dashboard-mobile-widget-strip--active', this.mobileWidgetTabsOpen);
-
-		// Toggle tabs visibility
-		tabs.classList.toggle('dashboard-mobile-widget-tabs--open', this.mobileWidgetTabsOpen);
-
-		// Update button active states
-		tabs.querySelectorAll('.dashboard-mobile-widget-btn').forEach((btn) => {
-			const el = btn as HTMLElement;
-			el.classList.toggle('active', el.dataset.widgetKey === this.mobileWidgetExpanded);
-		});
-
-		// Render panel content
-		panel.empty();
-
-		if (!this.mobileWidgetExpanded) {
-			panel.removeClass('dashboard-mobile-widget-panel--open');
-			return;
-		}
-
-		panel.addClass('dashboard-mobile-widget-panel--open');
-
-		if (this.mobileWidgetExpanded === 'pomodoro' && this.pomodoroService) {
-			renderSidebarPomodoro(panel, this.pomodoroService, this.plugin.settings, this.app, bg => {
-				this.plugin.settings = { ...this.plugin.settings, pomodoroBackground: bg };
-				void this.plugin.saveSettings();
-				this.plugin.refreshAllDashboards();
-			});
-		} else if (this.mobileWidgetExpanded === 'reading' && this.readingService) {
-			renderSidebarReading(panel, this.readingService);
-		} else if (this.mobileWidgetExpanded === 'lunar') {
-			renderSidebarLunarWidget(panel, this.holidayData, this.app);
-		} else if (this.mobileWidgetExpanded === 'calendar') {
-			// The tab tap is explicit intent: autoLoad skips the phone deferred-scan
-			// placeholder so the grid (and its dots) appear without a second tap.
-			renderSidebarCalendar(
-				panel,
-				this.plugin.settings,
-				this.app,
-				(file, line) => this.openNote(file, undefined, line),
-				{ autoLoad: true },
-			);
-		} else if (this.mobileWidgetExpanded === 'habit') {
-			renderSidebarHabitWidget(panel, this.app);
-		} else if (this.mobileWidgetExpanded === 'expense') {
-			renderSidebarExpenseWidget(panel, this.app);
-		}
-	}
-
 	private setupBannerBehavior(bannerEl: HTMLElement): void {
 		const pinBtn = bannerEl.createEl('button', {
 			cls: 'dashboard-banner-pin-btn',
@@ -1337,75 +953,6 @@ export class DashboardView extends ItemView implements HoverParent {
 		if (bannerEl) {
 			startBannerImageRotation(bannerEl, banner, this.app, DashboardView.BANNER_IMAGE_ROTATION_MS, fn => this.cleanupFns.push(fn));
 		}
-	}
-
-	private openMobileDrawer(type: 'quickActions' | 'recent'): void {
-		this.closeMobileDrawer();
-
-		const root = this.containerEl.children[1] as HTMLElement;
-		if (!root) return;
-
-		const firstSection = root.querySelector('.dashboard-section-row') as HTMLElement;
-		const drawerTop = firstSection ? firstSection.getBoundingClientRect().top : 0;
-
-		const drawer = root.createDiv({ cls: 'dashboard-mobile-drawer' });
-		drawer.style.top = `${drawerTop}px`;
-
-		const content = drawer.createDiv({ cls: 'dashboard-mobile-drawer-content' });
-
-		if (type === 'quickActions') {
-			content.createEl('h4', { text: t('mobile.quickActions'), cls: 'dashboard-mobile-drawer-title' });
-			if (this.data) {
-				renderQuickActions(
-					content,
-					this.data.quickActions,
-					(action) => { void this.executeAction(action); this.closeMobileDrawer(); },
-					(index) => {
-						void (async () => {
-							const confirmed = await showConfirmDialog(this.app, {
-								title: t('common.confirmDelete'),
-								message: t('common.confirmDeleteMessage'),
-							});
-							if (!confirmed) return;
-							void this.sync.removeQuickAction(index);
-						})();
-					},
-					() => this.openAddActionModal(),
-					this.data.quickActionOrder,
-					(order) => { void this.sync.reorderQuickActions(order); },
-					(key) => {
-						void (async () => {
-							const confirmed = await showConfirmDialog(this.app, {
-								title: t('common.confirmDelete'),
-								message: t('common.confirmDeleteMessage'),
-							});
-							if (!confirmed) return;
-							void this.sync.removeQuickActionByKey(key);
-						})();
-					},
-					this.data.hiddenPresets,
-					undefined,
-				);
-			}
-		} else {
-			content.createEl('h4', { text: t('mobile.recent'), cls: 'dashboard-mobile-drawer-title' });
-			const docs = getRecentDocs(this.app, this.plugin.settings.recentDocCount);
-			renderRecentDocs(content, docs, (path) => { void this.navigateToPath(path); });
-		}
-
-		const backdrop = drawer.createDiv({ cls: 'dashboard-mobile-drawer-backdrop' });
-		backdrop.addEventListener('click', () => this.closeMobileDrawer());
-
-		window.requestAnimationFrame(() => {
-			content.addClass('dashboard-mobile-drawer-content--open');
-		});
-	}
-
-	private closeMobileDrawer(): void {
-		const root = this.containerEl.children[1] as HTMLElement;
-		if (!root) return;
-		const existing = root.querySelector('.dashboard-mobile-drawer');
-		if (existing) existing.remove();
 	}
 
 	private renderSidebar(sidebar: HTMLElement, root: HTMLElement, reuseWidgets: HTMLElement | null): void {
@@ -1654,7 +1201,28 @@ export class DashboardView extends ItemView implements HoverParent {
 		}
 	}
 
-	private createCallbacks() {
+	/** The callback table the render layer receives.
+	 *
+	 *  Assembled from four groups so each one reads as what it is: card contents,
+	 *  board geometry, section actions, board chrome. The explicit return type is
+	 *  load-bearing — with spreads the compiler checks the ASSEMBLED object, so a
+	 *  group that loses a key fails here instead of at one of the six call sites
+	 *  that build a board. Groups must stay disjoint: a key appearing in two of
+	 *  them would be silently overridden by the later spread.
+	 */
+	private createCallbacks(): RenderCallbacks {
+		return {
+			...this.cardCallbacks(),
+			...this.layoutCallbacks(),
+			...this.sectionCallbacks(),
+			...this.chromeCallbacks(),
+		};
+	}
+
+	private cardCallbacks() {
+		/** Card contents: tasks, docs, memo bodies, covers, titles. These are the
+		 *  callbacks that write CARD data — the board's own file, or the user's
+		 *  daily note for the two task paths (view/task-writes.ts). */
 		return {
 			onCardEdit: (card: DashboardCard) => this.openCardEditModal(card),
 			onOpenNoteInPopover: (file: TFile, subpath?: string) => this.openNote(file, subpath),
@@ -1669,17 +1237,17 @@ export class DashboardView extends ItemView implements HoverParent {
 				void this.sync.deleteCard(cardId);
 				new Notice(t('card.deleted'));
 			},
-		onCardPinTop: (cardId: string, columnName: string) => {
-			// One-click pin-to-top on sticky cards: reuse the optimistic
-			// same-column move path. Already first -> skip the pointless write.
-			const col = this.data?.columns.find(c => c.name === columnName);
-			if (!col || col.cards[0]?.id === cardId) return;
-			void this.handleMoveCard(cardId, columnName, 0);
-		},
-		onTaskCardConfigSave: (card: DashboardCard, config: TaskCardConfig) => {
-			void this.applyTaskCardConfig(card, config);
-		},
-		onCheckboxToggleQuiet: (cardId: string, taskPath: number[], checked: boolean) => this.sync.toggleTaskQuiet(cardId, taskPath, checked),
+			onCardPinTop: (cardId: string, columnName: string) => {
+				// One-click pin-to-top on sticky cards: reuse the optimistic
+				// same-column move path. Already first -> skip the pointless write.
+				const col = this.data?.columns.find(c => c.name === columnName);
+				if (!col || col.cards[0]?.id === cardId) return;
+				void this.handleMoveCard(cardId, columnName, 0);
+			},
+			onTaskCardConfigSave: (card: DashboardCard, config: TaskCardConfig) => {
+				void this.applyTaskCardConfig(card, config);
+			},
+			onCheckboxToggleQuiet: (cardId: string, taskPath: number[], checked: boolean) => this.sync.toggleTaskQuiet(cardId, taskPath, checked),
 			onTaskAdd: (cardId: string, text: string, parentPath?: number[]) => this.sync.addTask(cardId, text, parentPath),
 			onTaskDelete: async (cardId: string, taskPath: number[]) => {
 				const confirmed = await showConfirmDialog(this.app, {
@@ -1698,14 +1266,28 @@ export class DashboardView extends ItemView implements HoverParent {
 			onTaskToggleCollapse: (cardId: string, taskPath: number[]) => this.sync.toggleCollapseTaskQuiet(cardId, taskPath),
 			onMemoUpdate: (card: DashboardCard, updates: Pick<DashboardCard, 'body' | 'blockquote'> & Partial<Pick<DashboardCard, 'tasks' | 'docs' | 'wikiLink' | 'url' | 'type'>>) => this.sync.updateMemoCard(card.id, updates),
 			onMemoSaveAsNote: (card: DashboardCard) => this.saveMemoAsNote(card),
-			onTaskSaveToDaily: (card: DashboardCard) => this.saveTasksToDaily(card),
+			onTaskSaveToDaily: (card: DashboardCard) => { void saveTasksToDaily(this.taskWriteHost(), card); },
 			onDocAdd: (cardId: string, path: string) => this.sync.addDocToCard(cardId, path),
-			onCardNewNote: (cardId: string, pos?: { x: number; y: number }) => { void this.handleCardNewNote(cardId, pos); },
+			onCardNewNote: (cardId: string, pos?: { x: number; y: number }) => { void cardNewNote(this.newNoteHost(), this.newNoteState, cardId, pos); },
 			onDocDelete: (cardId: string, docPath: number[]) => this.sync.deleteDoc(cardId, docPath),
 			onDocReorder: (cardId: string, fromPath: number[], toPath: number[], before: boolean) => this.sync.reorderDocs(cardId, fromPath, toPath, before),
 			onDocMoveToCard: (srcCardId: string, fromPath: number[], destCardId: string, destPath: number[], mode: 'before' | 'after' | 'nest') => this.sync.moveDocToCard(srcCardId, fromPath, destCardId, destPath, mode),
 			onDocNest: (cardId: string, docPath: number[]) => this.sync.nestDoc(cardId, docPath),
 			onDocToggleCollapse: (cardId: string, docPath: number[]) => this.sync.toggleCollapseDocQuiet(cardId, docPath),
+			onMemoColorChange: (card: DashboardCard, color: string) => this.sync.updateMemoColor(card.id, color),
+			onProjectCoverChange: (card: DashboardCard, imagePath: string) => this.sync.updateProjectCover(card.id, imagePath),
+			onCardTitleEdit: (cardId: string, newTitle: string) => this.sync.updateCard(cardId, { title: newTitle }),
+			onFileDrop: (cardId: string, filePath: string) => this.handleFileDrop(cardId, filePath),
+			onTaskReminderEdit: (cardId: string, taskPath: number[], reminder: string | undefined) => this.sync.editTaskReminder(cardId, taskPath, reminder),
+		};
+	}
+
+	private layoutCallbacks() {
+		/** Board geometry: columns, card sizes, grid placement, drag-move. Every
+		 *  one of these is gated by the same layout lock — moving a card in a
+		 *  pre-built board is exactly what "locked" means, so the check lives here
+		 *  rather than being repeated at each call site. */
+		return {
 			onCardAdd: (colName: string) => {
 				const column = this.data?.columns.find(col => col.name === colName);
 				const effectiveType = column?.sectionType ?? colName.toLowerCase();
@@ -1719,10 +1301,52 @@ export class DashboardView extends ItemView implements HoverParent {
 					this.openProjectSearchModal(colName);
 				}
 			},
-				onColumnAdd: (name: string, sectionType?: string) => {
-					void this.addColumnWithType(name, sectionType);
-				},
-				onRequestAddSection: () => this.openAddSectionModal(),
+			onColumnAdd: (name: string, sectionType?: string) => {
+				void this.addColumnWithType(name, sectionType);
+			},
+			onRequestAddSection: () => this.openAddSectionModal(),
+			onMoveCard: (cardId: string, targetCol: string, targetIdx: number) => this.handleMoveCard(cardId, targetCol, targetIdx),
+			onCardWidthChange: (cardId: string, width: number) => { if (this.isLayoutLocked()) return; void this.sync.updateCardWidth(cardId, width); },
+			onCardSizeChange: (cardId: string, size: string) => { if (this.isLayoutLocked()) return; void this.sync.updateCardSize(cardId, size as import('./types').CardSize); },
+			onCardGridChange: (cardId: string, gridCols: number, gridRows: number) => { if (this.isLayoutLocked()) return; void this.sync.updateCardGrid(cardId, gridCols, gridRows); },
+			onCardGridMove: (cardId: string, gridCol: number, gridRow: number) => { if (this.isLayoutLocked()) return; void this.sync.updateCardGridMove(cardId, gridCol, gridRow); },
+			onColumnRename: (oldName: string, newName: string, columnIndex?: number) => { void this.sync.renameColumn(oldName, newName, columnIndex); },
+			onColumnDelete: (columnName: string, columnIndex?: number) => this.deleteColumn(columnName, columnIndex),
+			onColumnMove: (fromIndex: number, toIndex: number) => { if (this.isLayoutLocked()) return; void this.sync.moveColumn(fromIndex, toIndex); },
+			onColumnMoveBeside: (fromIndex: number, targetIndex: number, side: 'left' | 'right') => { if (this.isLayoutLocked()) return; void this.sync.moveColumnBeside(fromIndex, targetIndex, side); },
+			onColumnHeightChange: (name: string, height: number) => { if (this.isLayoutLocked()) return; void this.sync.updateColumnHeight(name, height); },
+			onColumnWidthChange: (name: string, widthPct: number) => { if (this.isLayoutLocked()) return; void this.sync.updateColumnWidth(name, widthPct); },
+		};
+	}
+
+	private sectionCallbacks() {
+		/** Section-level actions: template picker, archive, and the two in-place
+		 *  config writes. The config writes swallow the echo render themselves (the
+		 *  section is repainted right after), which is why they look different from
+		 *  the gear-event path in view/board-events.ts: that one comes from a
+		 *  header button, this one from inside a section's own filter UI. */
+		return {
+			onAddFromTemplate: (columnName: string) => this.openTemplatePicker(columnName),
+			onArchiveTasks: (columnName: string) => { void archiveCompletedTasks(this.taskWriteHost(), columnName); },
+			onLibraryConfigChange: (columnName: string, config: LibraryConfig) => {
+			this.suppressNextRender = true;
+			void this.sync.updateSectionConfig(columnName, 'libraryConfig', config).then(() => {
+				this.refreshSectionInPlace(columnName);
+			});
+		},
+			onDataviewConfigChange: (columnName: string, config: DataviewConfig) => {
+				this.suppressNextRender = true;
+				void this.sync.updateSectionConfig(columnName, 'dataviewConfig', config).then(() => {
+					this.refreshSectionInPlace(columnName);
+				});
+			},
+		};
+	}
+
+	private chromeCallbacks() {
+		/** Everything around the cards: banner, quick actions/notes, pinned notes,
+		 *  commands, skill shortcuts, and opening a note. */
+		return {
 			onBannerEdit: () => {
 				if (this.data) this.openBannerEditModal(this.data);
 			},
@@ -1761,39 +1385,8 @@ export class DashboardView extends ItemView implements HoverParent {
 			},
 			onQuickNoteDaily: () => void openTodayNote(this.app),
 			onQuickNoteConfig: () => new QuickNoteConfigModal(this.app, this.plugin).open(),
-			onMoveCard: (cardId: string, targetCol: string, targetIdx: number) => this.handleMoveCard(cardId, targetCol, targetIdx),
-			onMemoColorChange: (card: DashboardCard, color: string) => this.sync.updateMemoColor(card.id, color),
-			onProjectCoverChange: (card: DashboardCard, imagePath: string) => this.sync.updateProjectCover(card.id, imagePath),
-				onCardTitleEdit: (cardId: string, newTitle: string) => this.sync.updateCard(cardId, { title: newTitle }),
-				onCardWidthChange: (cardId: string, width: number) => { if (this.isLayoutLocked()) return; void this.sync.updateCardWidth(cardId, width); },
-				onCardSizeChange: (cardId: string, size: string) => { if (this.isLayoutLocked()) return; void this.sync.updateCardSize(cardId, size as import('./types').CardSize); },
-				onCardGridChange: (cardId: string, gridCols: number, gridRows: number) => { if (this.isLayoutLocked()) return; void this.sync.updateCardGrid(cardId, gridCols, gridRows); },
-				onCardGridMove: (cardId: string, gridCol: number, gridRow: number) => { if (this.isLayoutLocked()) return; void this.sync.updateCardGridMove(cardId, gridCol, gridRow); },
-				onFileDrop: (cardId: string, filePath: string) => this.handleFileDrop(cardId, filePath),
-				onColumnRename: (oldName: string, newName: string, columnIndex?: number) => { void this.sync.renameColumn(oldName, newName, columnIndex); },
-				onColumnDelete: (columnName: string, columnIndex?: number) => this.deleteColumn(columnName, columnIndex),
-				onColumnMove: (fromIndex: number, toIndex: number) => { if (this.isLayoutLocked()) return; void this.sync.moveColumn(fromIndex, toIndex); },
-				onColumnMoveBeside: (fromIndex: number, targetIndex: number, side: 'left' | 'right') => { if (this.isLayoutLocked()) return; void this.sync.moveColumnBeside(fromIndex, targetIndex, side); },
-				onColumnHeightChange: (name: string, height: number) => { if (this.isLayoutLocked()) return; void this.sync.updateColumnHeight(name, height); },
-				onColumnWidthChange: (name: string, widthPct: number) => { if (this.isLayoutLocked()) return; void this.sync.updateColumnWidth(name, widthPct); },
-			onTaskReminderEdit: (cardId: string, taskPath: number[], reminder: string | undefined) => this.sync.editTaskReminder(cardId, taskPath, reminder),
-			onAddFromTemplate: (columnName: string) => this.openTemplatePicker(columnName),
-			onArchiveTasks: (columnName: string) => this.archiveCompletedTasks(columnName),
-				onLibraryConfigChange: (columnName: string, config: LibraryConfig) => {
-				this.suppressNextRender = true;
-				void this.sync.updateSectionConfig(columnName, 'libraryConfig', config).then(() => {
-					this.refreshSectionInPlace(columnName);
-				});
-			},
-				onDataviewConfigChange: (columnName: string, config: DataviewConfig) => {
-					this.suppressNextRender = true;
-					void this.sync.updateSectionConfig(columnName, 'dataviewConfig', config).then(() => {
-						this.refreshSectionInPlace(columnName);
-					});
-				},
 		};
 	}
-
 	private handleFileDrop(cardId: string, filePath: string): void {
 		if (!this.data) return;
 		let sectionType = 'projects';
@@ -1829,64 +1422,6 @@ export class DashboardView extends ItemView implements HoverParent {
 		} catch (err) {
 			console.error('[Dashboard] saveMemoAsNote failed:', err);
 			new Notice(t('notice.memoSaveError'), 4000);
-		}
-	}
-
-	private async saveTasksToDaily(card: DashboardCard): Promise<void> {
-		try {
-			if (!card.tasks || card.tasks.length === 0) {
-				new Notice(t('notice.noTasksToSave'));
-				return;
-			}
-
-			// Locate today's daily note via the core "Daily notes" plugin settings.
-			const dailyPlugin = getDailyNotesPlugin(this.app);
-			const options = dailyPlugin?.instance?.options;
-			if (!dailyPlugin?.enabled || !options) {
-				new Notice(t('notice.dailyNotesDisabled'), 5000);
-				return;
-			}
-
-			const folder = (options.folder || '').trim().replace(/^\/+|\/+$/g, '');
-			const format = options.format || 'YYYY-MM-DD';
-			const dateStr = nowMoment().format(format);
-			const fileName = `${dateStr}.md`;
-			const path = folder ? `${folder}/${fileName}` : fileName;
-
-			const title = card.title?.trim() || t('notice.memoUntitled');
-			// Heading depth is per-card config (default ### Title).
-			const heading = dailyBlockHeading(title, card.dailyHeadingLevel ?? 3);
-			const block = `${heading}\n${serializeTasksForNote(card.tasks)}`;
-
-			if (folder) await ensureFolder(this.app, folder);
-
-			const existing = this.app.vault.getAbstractFileByPath(path);
-			if (existing instanceof TFile) {
-				// A heading-level change moves the old block instead of leaving a
-				// stale copy behind (which would duplicate the task list).
-				try {
-					await retitleCardBlock(this.app, existing, title, card.dailyHeadingLevel ?? 3);
-				} catch (err) {
-					console.error('[Dashboard] retitle daily block failed:', err);
-				}
-				const raw = await this.app.vault.read(existing);
-				// Merge, don't overwrite: existing entries are updated to the
-				// card's state, new card entries are appended, and task lines
-				// that exist only in the note (hand-added / removed from the
-				// card) are left untouched. Absent heading → prepend a block.
-				const { content, replaced } = mergeDailyTasksBlock(raw, heading, card.tasks);
-				if (replaced) {
-					await this.app.vault.modify(existing, content);
-				} else {
-					await this.app.vault.modify(existing, prependAfterFrontmatter(raw, block));
-				}
-			} else {
-				await this.app.vault.create(path, `${block}\n`);
-			}
-			new Notice(t('notice.tasksSavedToDaily', { path }), 4000);
-		} catch (err) {
-			console.error('[Dashboard] saveTasksToDaily failed:', err);
-			new Notice(t('notice.dailySaveError'), 4000);
 		}
 	}
 
@@ -1976,78 +1511,6 @@ export class DashboardView extends ItemView implements HoverParent {
 		if (before === null) return;
 		await this.sync.refreshDailyLinkedTasks();
 		if (before !== this.dailyLinkedTasksSignature() && this.data) this.render(this.data);
-	}
-
-	private async archiveCompletedTasks(columnName: string): Promise<void> {
-		try {
-			if (!this.data) return;
-			const column = this.data.columns.find((c) => c.name === columnName);
-			if (!column) return;
-
-			const now = new Date();
-			const pad = (n: number) => String(n).padStart(2, '0');
-			const time = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-
-			const entries: Array<{ task: string; card: string }> = [];
-			for (const card of column.cards) {
-				const { archived } = archiveCompleted(card.tasks);
-				if (archived.length === 0) continue;
-				const cardTitle = card.title?.trim() || t('notice.memoUntitled');
-				for (const item of archived) {
-					entries.push({ task: item.text, card: cardTitle });
-				}
-			}
-
-			if (entries.length === 0) {
-				new Notice(t('notice.archiveEmpty'));
-				return;
-			}
-
-			const confirmed = await showConfirmDialog(this.app, {
-				title: t('renderer.archiveTasks'),
-				message: t('notice.archiveConfirm', { count: entries.length }),
-			});
-			if (!confirmed) return;
-
-			// Write the running log before mutating the board: if the write fails,
-			// the tasks stay on the board (no data loss). Destination is either
-			// today's daily note (created from the daily-notes template when
-			// missing; a stale blank note is template-rescued) or the configured
-			// fixed file with auto-created folders.
-			const lines = entries.map((e) => t('notice.archiveLine', { time, task: e.task, card: e.card }));
-			const appendText = `${lines.join('\n')}\n`;
-
-			let destFile: TFile;
-			if (this.plugin.settings.taskArchiveTarget === 'daily') {
-				const note = await getOrCreateDailyNote(this.app, nowMoment().format('YYYY-MM-DD'));
-				if (!note) {
-					// Daily notes not configured / path unresolvable: abort BEFORE
-					// removing anything from the board.
-					new Notice(t('notice.archiveDailyUnavailable'), 4000);
-					return;
-				}
-				destFile = note;
-			} else {
-				const configured = this.plugin.settings.taskArchivePath.trim().replace(/^\/+|\/+$/g, '');
-				const fullPath = configured || '归档/已完成.md';
-				const slash = fullPath.lastIndexOf('/');
-				const folder = slash >= 0 ? fullPath.slice(0, slash) : '';
-				if (folder) await ensureFolder(this.app, folder);
-				const existing = this.app.vault.getAbstractFileByPath(fullPath);
-				destFile = existing instanceof TFile ? existing : await this.app.vault.create(fullPath, '');
-			}
-
-			const raw = await this.app.vault.read(destFile);
-			const sep = raw === '' || raw.endsWith('\n') ? '' : '\n';
-			await this.app.vault.modify(destFile, `${raw}${sep}${appendText}`);
-
-			await this.sync.archiveTasks(columnName);
-
-			new Notice(t('notice.archived', { count: entries.length, path: destFile.path }), 4000);
-		} catch (err) {
-			console.error('[Dashboard] archiveCompletedTasks failed:', err);
-			new Notice(t('notice.archiveError'), 4000);
-		}
 	}
 
 	private openBannerEditModal(data: DashboardData): void {
@@ -2313,211 +1776,48 @@ export class DashboardView extends ItemView implements HoverParent {
 		void this.addImmersiveWidget(widgetKey);
 	}
 
-	private openWidgetTypeModal(colName: string): void {
-		const modal = new WidgetTypeModal(this.app, (type: WidgetType) => {
-			if (type === 'weather') {
-				this.openWeatherConfigModal(colName);
-			} else if (type === 'tracker') {
-				this.openTrackerConfigModal(colName);
-			}
-		});
-		modal.open();
-	}
-
-	/** Sticky ("便利贴") sections: choose memo or todo before the card is created. */
-	private openStickyCardTypeModal(colName: string): void {
-		const modal = new StickyCardTypeModal(this.app, (kind) => {
-			this.pendingScrollToLastCardOfColumn = colName;
-			if (kind === 'todo') {
-				void this.sync.addCard(colName, { type: 'task', title: t('sync.todoTitle') });
-			} else {
-				const now = new Date();
-				const pad = (n: number) => String(n).padStart(2, '0');
-				const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-				void this.sync.addCard(colName, { type: 'generic', title: t('sync.memoTitle', { date }) });
-			}
-		});
-		modal.open();
-	}
-
-	private openWeatherConfigModal(colName: string): void {
-		const modal = new WeatherConfigModal(this.app, (title, config) => {
-			void this.sync.addCard(colName, {
-				title,
-				type: 'weather',
-				weatherConfig: config,
-			});
-		});
-		modal.open();
-	}
-
-	private openTrackerConfigModal(colName: string): void {
-		const modal = new TrackerConfigModal(this.app, (title, config) => {
-			void this.sync.addCard(colName, {
-				title,
-				type: 'tracker',
-				trackerConfig: config,
-			});
-		});
-		modal.open();
-	}
-
-	private openTemplatePicker(colName: string): void {
-		const modal = new TemplatePickerModal(
-			this.app,
-			this.plugin,
-			(template) => {
-				this.pendingScrollToLastCardOfColumn = colName;
-				void this.sync.addCard(colName, {
-					title: template.name,
-					type: 'task',
-					tasks: template.tasks.map(text => ({ text, checked: false })),
-				});
-			},
-		);
-		modal.open();
-	}
-
-	private openLibraryConfigModal(colName: string): void {
-		const column = this.data?.columns.find(col => col.name === colName);
-		const existingConfig = column?.libraryConfig ?? {
-			filters: [],
-			viewMode: 'grid' as const,
-			sortBy: 'modified',
-			sortDesc: true,
+	/** Everything the section gear / add-card buttons open lives in
+	 *  view/config-modals.ts; these forwarders keep the board delegation's call
+	 *  sites (and their arguments) unchanged. */
+	private modalHost(): ConfigModalHost {
+		return {
+			app: this.app,
+			plugin: this.plugin,
+			sync: this.sync,
+			data: this.data,
+			setPendingScrollColumn: (name) => { this.pendingScrollToLastCardOfColumn = name; },
 		};
-		const modal = new LibraryConfigModal(
-			this.app,
-			existingConfig,
-			(config) => {
-				void this.sync.updateSectionConfig(colName, 'libraryConfig', config);
-			},
-		);
-		modal.open();
 	}
 
-	private openDataviewConfigModal(colName: string): void {
-		const column = this.data?.columns.find(col => col.name === colName);
-		const existing = column?.dataviewConfig ?? { query: '' };
-		const modal = new DataviewConfigModal(
-			this.app,
-			existing,
-			(config) => { void this.sync.updateSectionConfig(colName, 'dataviewConfig', config); },
-		);
-		modal.open();
-	}
+	private openWidgetTypeModal(colName: string): void { openWidgetTypeModal(this.modalHost(), colName); }
 
-	/** Web section: URL + engine mode + zoom. Saving goes through the plain
-	 *  sync path — handleDataUpdate('local') rebuilds the section in place,
-	 *  reloading the frame with the new URL. */
-	private openWebConfigModal(colName: string): void {
-		const column = this.data?.columns.find(col => col.name === colName);
-		const existing = column?.webConfig ?? { url: '' };
-		const modal = new WebConfigModal(
-			this.app,
-			existing,
-			(config) => { void this.sync.updateSectionConfig(colName, 'webConfig', config); },
-		);
-		modal.open();
-	}
+	private openStickyCardTypeModal(colName: string): void { openStickyCardTypeModal(this.modalHost(), colName); }
 
-	/** RSS section: subscription sources + download folder. Same plain sync
-	 *  path — the section rebuilds in place and re-reads its feeds. */
-	private openRssConfigModal(colName: string): void {
-		const column = this.data?.columns.find(col => col.name === colName);
-		const existing = column?.rssConfig ?? { feeds: [], downloadFolder: '' };
-		const modal = new RssConfigModal(
-			this.app,
-			existing,
-			(config) => { void this.sync.updateSectionConfig(colName, 'rssConfig', config); },
-		);
-		modal.open();
-	}
+	private openWeatherConfigModal(colName: string): void { openWeatherConfigModal(this.modalHost(), colName); }
 
-	/** Run the configured creator skill — via the confirm dialog by default,
-	 *  direct-send only when the config opted in. */
-	private dispatchSkillCreate(cfg: import('./types').SkillCreateConfig): void {
-		const spec = { label: cfg.skillName, skillName: cfg.skillName, promptTemplate: cfg.promptTemplate };
-		if (cfg.directSend) fireSkillDirect(this.app, spec, cfg.agent);
-		else new AgentPromptModal(this.app, spec, cfg.agent, {}).open();
-	}
+	private openTrackerConfigModal(colName: string): void { openTrackerConfigModal(this.modalHost(), colName); }
 
-	/** Skills sections: visible stores + default sort (see
-	 *  SkillSectionConfigModal). The section works with no config at all —
-	 *  this modal is for trimming, not for setup. */
-	private openSkillsConfigModal(colName: string): void {
-		const column = this.data?.columns.find(col => col.name === colName);
-		const modal = new SkillSectionConfigModal(
-			this.app,
-			column?.skillsConfig,
-			(config) => { void this.sync.updateSectionConfig(colName, 'skillsConfig', config); },
-			this.plugin,
-		);
-		modal.open();
-	}
+	private openTemplatePicker(colName: string): void { openTemplatePicker(this.modalHost(), colName); }
 
-	/** Pipeline sections: stages, skill buttons and the status field. The modal
-	 *  seeds sensible defaults when the section was just created. */
-	private openPipelineConfigModal(colName: string): void {
-		const column = this.data?.columns.find(col => col.name === colName);
-		const modal = new PipelineConfigModal(
-			this.app,
-			column?.pipelineConfig,
-			(config) => {
-				void (async () => {
-					await this.sync.updateSectionConfig(colName, 'pipelineConfig', config);
-					// Remember valid skill names per agent so the pickers
-					// offer them next time (see skill-registry).
-					for (const agent of new Set(config.skills.map(skill => skill.agent))) {
-						await rememberSkillNames(this.plugin, agent, config.skills.filter(skill => skill.agent === agent && skill.skillName).map(skill => skill.skillName));
-					}
-				})();
-			},
-			this.plugin,
-		);
-		modal.open();
-	}
+	private openLibraryConfigModal(colName: string): void { openLibraryConfigModal(this.modalHost(), colName); }
 
-	private openPmConfigModal(colName: string): void {
-		const column = this.data?.columns.find(col => col.name === colName);
-		const modal = new PmConfigModal(
-			this.app,
-			column?.pmConfig,
-			(config) => {
-				void (async () => {
-					await this.sync.updateSectionConfig(colName, 'pmConfig', config);
-					for (const agent of new Set((config.skills ?? []).map(skill => skill.agent))) {
-						await rememberSkillNames(this.plugin, agent, (config.skills ?? []).filter(skill => skill.agent === agent && skill.skillName).map(skill => skill.skillName));
-					}
-				})();
-			},
-			this.plugin,
-		);
-		modal.open();
-	}
+	private openDataviewConfigModal(colName: string): void { openDataviewConfigModal(this.modalHost(), colName); }
 
-	/** Images/videos sections: the config currently manages the excluded-folder
-	 *  set, persisted via the column's libraryConfig. */
-	private openMediaConfigModal(colName: string): void {
-		const column = this.data?.columns.find(col => col.name === colName);
-		const modal = new MediaConfigModal(
-			this.app,
-			column?.libraryConfig,
-			(config) => { void this.sync.updateSectionConfig(colName, 'libraryConfig', config); },
-		);
-		modal.open();
-	}
+	private openWebConfigModal(colName: string): void { openWebConfigModal(this.modalHost(), colName); }
 
-	private openWereadConfigModal(colName: string): void {
-		const column = this.data?.columns.find(col => col.name === colName);
-		const existing = column?.wereadConfig ?? { widgets: [{ id: 'w1', view: 'shelf' as const, groupBy: 'readingState' as const }] };
-		const modal = new WereadConfigModal(
-			this.app,
-			existing,
-			(config) => { void this.sync.updateSectionConfig(colName, 'wereadConfig', config); },
-		);
-		modal.open();
-	}
+	private openRssConfigModal(colName: string): void { openRssConfigModal(this.modalHost(), colName); }
+
+	private dispatchSkillCreate(cfg: SkillCreateConfig): void { dispatchSkillCreate(this.modalHost(), cfg); }
+
+	private openSkillsConfigModal(colName: string): void { openSkillsConfigModal(this.modalHost(), colName); }
+
+	private openPipelineConfigModal(colName: string): void { openPipelineConfigModal(this.modalHost(), colName); }
+
+	private openPmConfigModal(colName: string): void { openPmConfigModal(this.modalHost(), colName); }
+
+	private openMediaConfigModal(colName: string): void { openMediaConfigModal(this.modalHost(), colName); }
+
+	private openWereadConfigModal(colName: string): void { openWereadConfigModal(this.modalHost(), colName); }
 
 	/**
 	 * Optimistic card move: rewrite only the affected section(s) in place
@@ -2731,74 +2031,6 @@ export class DashboardView extends ItemView implements HoverParent {
 		modal.open();
 	}
 
-	/** Reentrancy guard: a second toolbar click while the title prompt is open
-	 *  must not stack a second dialog (overlay stacking is a known bug class). */
-	private libraryNewNoteInFlight = false;
-	private cardNewNoteInFlight = false;
-
-	/** Per-card "new note" (notes/projects sections): prompt for a title, create
-	 *  the note from the section's settings (template + save folder; vault root
-	 *  when no folder is configured), attach it to the card's doc list, and
-	 *  open it. Several configured templates first offer a picker menu at the
-	 *  click point (dismissal falls back to the first entry). */
-	private async handleCardNewNote(cardId: string, pos?: { x: number; y: number }): Promise<void> {
-		if (this.cardNewNoteInFlight) return;
-		this.cardNewNoteInFlight = true;
-		try {
-			let found: { column: DashboardColumn; card: DashboardCard } | null = null;
-			for (const column of this.data?.columns ?? []) {
-				const card = column.cards.find(c => c.id === cardId);
-				if (card) { found = { column, card }; break; }
-			}
-			if (!found) return;
-			const { column, card } = found;
-
-			const folder = sectionNewNoteFolder(column.libraryConfig);
-			const templates = sectionTemplatePaths(column.libraryConfig);
-			let templatePath = templates[0];
-			if (templates.length > 1 && pos) {
-				// Menu dismissed without a pick: the documented default (first).
-				templatePath = (await pickTemplateFromMenu(templates, pos)) ?? templates[0];
-			}
-			const title = await showPromptDialog(this.app, {
-				title: t('quickNote.titlePrompt'),
-				placeholder: t('quickNote.titlePlaceholder'),
-			});
-			if (title == null) return; // cancelled (empty submit cancels too)
-
-			try {
-				let file: TFile;
-				try {
-					file = await createNoteWithProps(this.app, folder, title, {}, templatePath || undefined);
-				} catch (err) {
-					// A missing template must not kill the creation — fall back to
-					// a bare note and tell the user (the library flow's behavior).
-					if (err instanceof Error && err.message.startsWith('Template not found')) {
-						new Notice(t('quickNote.templateNotFound'));
-						file = await createNoteWithProps(this.app, folder, title, {});
-					} else {
-						throw err;
-					}
-				}
-				await this.sync.addDocToCard(card.id, file.path);
-				// Open the fresh note per the card's config (card edit modal):
-				// the in-dashboard popover editor by default — identical to
-				// clicking one of the card's docs — or a real editor tab.
-				if (card.newNoteOpenMode === 'tab') {
-					await this.app.workspace.getLeaf('tab').openFile(file);
-				} else {
-					this.openNotePopover(file);
-				}
-				new Notice(t('quickNote.created', { name: file.basename }));
-			} catch (err) {
-				console.error('[Dashboard] card new note failed:', err);
-				new Notice(t('library.newNoteFailed'));
-			}
-		} finally {
-			this.cardNewNoteInFlight = false;
-		}
-	}
-
 	/** Notes section settings: show covers, new-note templates + save folder.
 	 *  Templates/folder ride the column's libraryConfig; the cover toggle is
 	 *  the column's showCover field — both persist in one write. */
@@ -2827,116 +2059,6 @@ export class DashboardView extends ItemView implements HoverParent {
 			},
 		);
 		modal.open();
-	}
-
-	/** Toolbar "new note": folder sections create inside their configured folder
-	 *  (menu when several); library sections create at settings.libraryNewNotePath
-	 *  with the section's property filters pre-filled so the note matches them.
-	 *  Several configured templates offer a picker menu at the click point
-	 *  (dismissal falls back to the first entry). A library section with
-	 *  hand-authored scan folders (dashboard-file YAML) follows the folder
-	 *  branch — queryVaultFiles scopes its results to those folders, so the
-	 *  global path would hide the note.
-	 *  The section refresh is explicit (refreshSectionAfterCreate, once the
-	 *  note's frontmatter is indexed): the vault-'create' debounce alone
-	 *  freezes whole-vault scans on immersive boards, and the tab path only
-	 *  masked that because the workspace switch-in did a full re-render. */
-	/** Refresh one scanning section once a just-created note is metadata-
-	 *  indexed (frontmatter resolved). Polling the cache — instead of
-	 *  refreshing immediately — keeps a filter-matching note from being
-	 *  rendered invisible by an unindexed first pass; a 2s cap means a
-	 *  cache-less edge case still refreshes rather than never. */
-	private async refreshSectionAfterCreate(columnName: string, file: TFile): Promise<void> {
-		const start = Date.now();
-		while (Date.now() - start < 2000 && !this.app.metadataCache.getFileCache(file)) {
-			await new Promise(resolve => window.setTimeout(resolve, 50));
-		}
-		this.refreshSectionInPlace(columnName);
-	}
-
-	private async handleLibraryNewNote(columnName: string, pos?: { x: number; y: number }): Promise<void> {
-		if (this.libraryNewNoteInFlight) return;
-		this.libraryNewNoteInFlight = true;
-		try {
-			const column = this.data?.columns.find(c => c.name === columnName);
-			if (!column || (column.sectionType !== 'folder' && column.sectionType !== 'library')) return;
-
-			const folders = (column.libraryConfig?.folders ?? [])
-				.map(f => f.trim().replace(/^\/+|\/+$/g, ''))
-				.filter(f => f.length > 0);
-			let folder: string;
-			if (column.sectionType === 'folder' || folders.length > 0) {
-				if (folders.length === 0) {
-					new Notice(t('library.newNoteNoFolder'));
-					return;
-				}
-				if (folders.length === 1) {
-					folder = folders[0]!;
-				} else {
-					if (!pos) return;
-					folder = (await pickFolderFromMenu(folders, pos)) ?? '';
-					if (!folder) return; // menu dismissed
-				}
-			} else {
-				folder = this.plugin.settings.libraryNewNotePath.trim().replace(/^\/+|\/+$/g, '');
-			}
-
-			// Template picker: only when several are configured. Dismissed
-			// without a pick → the documented default (first entry).
-			const templates = sectionTemplatePaths(column.libraryConfig);
-			let templatePath = templates[0];
-			if (templates.length > 1 && pos) {
-				templatePath = (await pickTemplateFromMenu(templates, pos)) ?? templates[0];
-			}
-
-			const title = await showPromptDialog(this.app, {
-				title: t('quickNote.titlePrompt'),
-				placeholder: t('quickNote.titlePlaceholder'),
-			});
-			if (title == null) return; // cancelled (empty submit cancels too — same as presets)
-
-			const { props, skipped } = buildNewNoteProps(column.libraryConfig);
-			try {
-				let file: TFile;
-				try {
-					file = await createNoteWithProps(this.app, folder, title, props, templatePath || undefined);
-				} catch (err) {
-					// Missing template should not kill the creation — fall back
-					// to a bare note and tell the user (the preset behavior).
-					if (err instanceof Error && err.message.startsWith('Template not found')) {
-						new Notice(t('quickNote.templateNotFound'));
-						file = await createNoteWithProps(this.app, folder, title, props);
-					} else {
-						throw err;
-					}
-				}
-				// Open the fresh note per the section's config (library config
-				// modal): a real editor tab — the historical library behavior —
-				// or the in-dashboard popover editor when opted in.
-				if (column.libraryConfig?.newNoteOpenMode === 'popover') {
-					this.openNotePopover(file);
-				} else {
-					await this.app.workspace.getLeaf('tab').openFile(file);
-				}
-				// The vault-'create' debounce alone cannot be trusted to show
-				// the note: immersive boards freeze whole-vault scans on vault
-				// events (anti-strobing), and the tab path only looked alive
-				// because the switch-in full render masked it. Refresh the
-				// section explicitly once the note's frontmatter is indexed —
-				// an immediate pass could beat the cache and hide a
-				// filter-matching note.
-				void this.refreshSectionAfterCreate(column.name, file);
-				new Notice(t('quickNote.created', { name: file.basename }));
-				if (skipped.length > 0) {
-					new Notice(t('library.newNoteSkipped', { props: skipped.join(', ') }));
-				}
-			} catch (err) {
-				console.error('[Dashboard] library new note failed:', err);
-				new Notice(t('library.newNoteFailed'));
-			}
-		} finally {
-			this.libraryNewNoteInFlight = false;
-		}
 	}
 
 	private openAddActionModal(): void {
@@ -3023,158 +2145,11 @@ export class DashboardView extends ItemView implements HoverParent {
 	}
 
 	private registerVaultListeners(): void {
-		this.unregisterVaultListeners();
-		const events = this.app.vault;
-		const dashboardPath = dashboardMarkdownPath(this.plugin.settings.dashboardFile);
-		// Record one vault change. File events contribute their path (renames
-		// both ends); folder events and unknown entities set the broad flag —
-		// a folder carries no file path to scope-match, so refresh everything.
-		// Our own dashboard-file writes are skipped: the engine owns that state
-		// and handleDataUpdate has already re-rendered whatever they changed.
-		const record = (file: TAbstractFile | null, oldPath?: string): void => {
-			if (file instanceof TFile) {
-				if (file.path !== dashboardPath) this.vaultChangePaths.add(file.path);
-				if (oldPath && oldPath !== dashboardPath) this.vaultChangePaths.add(oldPath);
-			} else {
-				this.vaultChangeBroad = true;
-			}
-			this.scheduleVaultRefresh();
-		};
-
-		const createRef = events.on('create', (file: TAbstractFile) => {
-			// A brand-new note's frontmatter is indexed asynchronously: the
-			// create-debounce may render before the cache has the properties
-			// (a pipeline board's strict status filter would hide the card).
-			// Track it so its FIRST metadataCache 'changed' (index complete)
-			// forces one more refresh pass.
-			if (file instanceof TFile && file.extension === 'md') {
-				this.pendingMdIndexPaths.add(file.path);
-			}
-			record(file);
-		});
-		const modifyRef = events.on('modify', (file: TAbstractFile) => {
-			// Plain content edits only matter to the note-derived views; an
-			// image overwrite with the same path renders identically.
-			if (file instanceof TFile && file.extension === 'md') {
-				record(file);
-			}
-		});
-		const deleteRef = events.on('delete', (file: TAbstractFile) => {
-			if (file instanceof TFile) this.pendingMdIndexPaths.delete(file.path);
-			record(file);
-		});
-		const renameRef = events.on('rename', (file: TAbstractFile, oldPath: string) => {
-			if (file instanceof TFile) {
-				if (this.pendingMdIndexPaths.delete(oldPath)) this.pendingMdIndexPaths.add(file.path);
-			}
-			record(file, oldPath);
-		});
-		// First cache index of a newly created note: the path/mtime/ctime
-		// signature cannot see a cache-only change, so drop the signature
-		// cache for this one pass. Gated to pending creations — firing on
-		// every edit would nullify the signature short-circuit entirely.
-		const metadata = this.app.metadataCache;
-		const metaChangedRef = metadata.on('changed', (file: TFile) => {
-			if (file.extension !== 'md') return;
-			const isCreation = this.pendingMdIndexPaths.delete(file.path);
-			// Cache landed after the last refresh pass already used this file —
-			// that pass rendered stale frontmatter (e.g. a pin that "bounced
-			// back"); drop the signatures and run one corrective pass.
-			const isLagged = this.mdCacheLagPaths.has(file.path);
-			if (!isCreation && !isLagged) return;
-			if (isLagged) this.mdCacheLagPaths.delete(file.path);
-			invalidateScanningSectionSignatures();
-			record(file);
-		});
-
-		this.vaultEventRefs = [
-			{ evt: events, ref: createRef },
-			{ evt: events, ref: modifyRef },
-			{ evt: events, ref: deleteRef },
-			{ evt: events, ref: renameRef },
-			{ evt: metadata, ref: metaChangedRef },
-		];
+		this.vaultWatcher.register();
 	}
 
 	private unregisterVaultListeners(): void {
-		for (const { evt, ref } of this.vaultEventRefs) {
-			evt.offref(ref as Parameters<typeof evt.offref>[0]);
-		}
-		this.vaultEventRefs = [];
-		if (this.vaultRefreshTimer) {
-			window.clearTimeout(this.vaultRefreshTimer);
-			this.vaultRefreshTimer = null;
-		}
-		this.vaultChangePaths = new Set();
-		this.vaultChangeBroad = false;
-		this.pendingMdIndexPaths = new Set();
-		this.mdCacheLagPaths = new Set();
-		if (this.bannerStatsTimer) {
-			window.clearTimeout(this.bannerStatsTimer);
-			this.bannerStatsTimer = null;
-		}
-	}
-
-	/** One trailing debounce for every vault event. A burst of edits costs a
-	 *  single fan-out pass instead of five independently-reset timers. */
-	private scheduleVaultRefresh(): void {
-		if (this.vaultRefreshTimer) window.clearTimeout(this.vaultRefreshTimer);
-		this.vaultRefreshTimer = window.setTimeout(() => {
-			this.vaultRefreshTimer = null;
-			const paths = this.vaultChangePaths;
-			const broad = this.vaultChangeBroad;
-			this.vaultChangePaths = new Set();
-			this.vaultChangeBroad = false;
-			this.flushVaultRefresh(paths, broad);
-		}, this.VAULT_REFRESH_DEBOUNCE);
-	}
-
-	/** Apply one debounced batch of vault changes. Each derived view is gated
-	 *  by what the batch can actually affect: note-derived sidebars and
-	 *  calendar sections need an .md change, album slideshows and media
-	 *  sections an image/audio/video one, and scanning sections a change
-	 *  inside their scan scope. */
-	private flushVaultRefresh(paths: ReadonlySet<string>, broad: boolean): void {
-		const lowerPaths = [...paths].map(p => p.toLowerCase());
-		const changedMd = broad || lowerPaths.some(p => p.endsWith('.md'));
-		const changedMedia = broad || lowerPaths.some(p => {
-			const dot = p.lastIndexOf('.');
-			const ext = dot >= 0 ? p.slice(dot + 1) : '';
-			const kind = fileKind(ext);
-			return kind === 'image' || kind === 'audio' || kind === 'video';
-		});
-		if (changedMd) {
-			this.refreshRecentDocs();
-			this.refreshSidebarCalendarNow();
-			// Cards whose tasks mirror today's daily note (and only those) need
-			// a re-read; the helper renders only when the lists actually differ.
-			void this.refreshDailyLinkedCards();
-			// Day agendas hold the list they were opened with; an edit made in a
-			// tab (the popover path nudges on close, see onNoteEditedInPopover)
-			// still leaves them stale. They repaint only on a visible change.
-			refreshOpenDayAgendas();
-			// Keeps its own extra debounce: the stats recompute walks the vault.
-			this.debouncedRefreshBannerStats();
-		}
-		if (changedMedia) {
-			this.refreshAlbumWidgetsNow();
-		}
-		this.refreshSectionsFor(lowerPaths, broad, changedMd, changedMedia);
-		// Arm the lag guard: any of these whose cache lands LATER must force
-		// one corrective refresh (the pass above may have read stale cache).
-		// UNION, never replace — a replace wipes slow-index entries before
-		// their 'changed' arrives, and the corrective pass never fires.
-		for (const p of paths) this.mdCacheLagPaths.add(p);
-		// Bound the set so a 'changed'-less path cannot accumulate forever.
-		if (this.mdCacheLagPaths.size > 200) {
-			const excess = this.mdCacheLagPaths.size - 200;
-			let dropped = 0;
-			for (const p of this.mdCacheLagPaths) {
-				if (dropped >= excess) break;
-				this.mdCacheLagPaths.delete(p);
-				dropped += 1;
-			}
-		}
+		this.vaultWatcher.unregister();
 	}
 
 	/** Re-scan the sidebar task calendar in place (task dots). The widget DOM
@@ -3195,263 +2170,148 @@ export class DashboardView extends ItemView implements HoverParent {
 		if (root) refreshAlbumWidgets(root, albums, this.app);
 	}
 
-	/** Rebuild only the sections whose scan scope intersects the changed
-	 *  paths. Library/folder sections are scoped by their configured folders
-	 *  (a library without folders scans the whole vault, so it always
-	 *  qualifies); calendar sections aggregate tasks across all notes, so any
-	 *  .md change qualifies; media sections react to media-file changes.
-	 *  `broad` (folder-level events) conservatively refreshes everything. */
-	private refreshSectionsFor(lowerPaths: readonly string[], broad: boolean, changedMd: boolean, changedMedia: boolean): void {
-		const data = this.sync.getData();
-		if (!data) return;
-		// HYBRID model: on immersive boards the scanning/media sections are
-		// PINNED views — vault-event-driven in-place rebuilds are skipped
-		// entirely (each rebuild swaps the tile element, and at Rae's vault
-		// event rate that read as continuous strobing). They refresh on the
-		// next full render (any board data edit, workspace switch-in, settings
-		// change) like every other section. Calendar grids are in-place
-		// updates that never swap elements — those stay live everywhere.
-		const immersive = isImmersiveLayout(this.plugin.settings, data);
-		const sectionType = (col: { sectionType?: string }) => col.sectionType;
-		const hasScanning = !immersive && data.columns.some(col => {
-			const st = sectionType(col);
-			return st === 'library' || st === 'calendar' || st === 'folder' || st === 'pipeline' || st === 'pm';
-		});
-		const hasMedia = !immersive && data.columns.some(col => {
-			const st = sectionType(col);
-			return st === 'images' || st === 'videos';
-		});
-		if (!hasScanning && !hasMedia) {
-			// Calendar grids stay live even on immersive boards (in-place
-			// update, no element swap).
-			if (immersive && changedMd) {
-				const root = this.containerEl.children[1] as HTMLElement | undefined;
-				const kanban0 = root?.querySelector('.dashboard-kanban');
-				if (kanban0) refreshCalendarSections(kanban0 as HTMLElement);
-			}
-			// Immersive scanning tiles still live-refresh — SCOPED. Pin
-			// toggles, due dates, checklist checks, agent writes and note
-			// edits land as in-scope .md changes; refreshSectionInPlace is
-			// the immersive-safe path (carries tile placement + scroll +
-			// re-wires DnD). Sections with a configured scope (pipeline root,
-			// library/folder folders) refresh only when the edit hits that
-			// scope; whole-vault scans stay on full-render refresh —
-			// rebuilding those on every distant edit was the original
-			// strobing this layout's refresh freeze exists to prevent.
-			if (immersive && changedMd) {
-				for (const col of data.columns) {
-					const st = col.sectionType;
-					if (st === 'pipeline' || st === 'pm') {
-						const rootFolder = ((st === 'pipeline'
-							? col.pipelineConfig?.rootFolder
-							: col.pmConfig?.rootFolder) ?? '').trim().replace(/^\/+|\/+$/g, '').toLowerCase();
-						const hit = rootFolder.length === 0 || lowerPaths.some(p => p.startsWith(rootFolder + '/')) || (st === 'pm' && (col.pmConfig?.ganttSources || []).some(ref => lowerPaths.includes(ref.path.toLowerCase())));
-						if (hit) this.refreshSectionInPlace(col.name);
-					} else if (st === 'library' || st === 'folder') {
-						const folders = (col.libraryConfig?.folders ?? [])
-							.map(f => f.trim().replace(/^\/+|\/+$/g, '').toLowerCase())
-							.filter(f => f.length > 0);
-						if (folders.length === 0) continue; // whole-vault scan: keep the freeze
-						const hit = lowerPaths.some(p => folders.some(f => p.startsWith(f + '/')));
-						if (hit) this.refreshSectionInPlace(col.name);
-					}
-				}
-			}
-			return;
-		}
-
-		const root = this.containerEl.children[1] as HTMLElement | undefined;
-		const kanban = root?.querySelector('.dashboard-kanban') as HTMLElement | null;
-		if (!kanban) {
-			// View not laid out yet — fall back to a full render.
-			this.render(data);
-			return;
-		}
-
-		const inScope = (col: DashboardColumn): boolean => {
-			const folders = (col.libraryConfig?.folders ?? [])
-				.map(f => f.trim().replace(/^\/+|\/+$/g, ''))
-				.filter(f => f.length > 0);
-			// Pipeline/PM sections scope to their root folder (empty = whole vault).
-			if (folders.length === 0 && (col.sectionType === 'pipeline' || col.sectionType === 'pm')) {
-				const root = ((col.sectionType === 'pipeline' ? col.pipelineConfig?.rootFolder : col.pmConfig?.rootFolder) ?? '')
-					.trim().replace(/^\/+|\/+$/g, '').toLowerCase();
-				if (root.length > 0) {
-					if (broad || lowerPaths.length === 0) return true;
-					return lowerPaths.some(p => p.startsWith(root + '/')) || (col.sectionType === 'pm' && (col.pmConfig?.ganttSources || []).some(ref => lowerPaths.includes(ref.path.toLowerCase())));
-				}
-				return true;
-			}
-			// No configured folders: the section scans the whole vault.
-			if (folders.length === 0) return true;
-			if (broad || lowerPaths.length === 0) return true;
-			return lowerPaths.some(p => folders.some(f => p.startsWith(f.toLowerCase() + '/')));
-		};
-		const shouldRefreshScanning = (col: DashboardColumn): boolean => {
-			const st = sectionType(col);
-			// Tasks live in any note, so calendar sections follow every .md.
-			if (st === 'calendar') return changedMd;
-			return inScope(col);
-		};
-
-		const callbacks = this.createCallbacks();
-		let swapped = 0;
-		if (hasScanning) {
-			swapped += refreshScanningSections(
-				kanban, data, callbacks, this.app, this.plugin.settings, this,
-				shouldRefreshScanning,
-				dashboardMarkdownPath(this.plugin.settings.dashboardFile),
-			);
-			// Calendar sections refresh their grid in place (nav/filter state
-			// preserved) instead of going through refreshScanningSections.
-			if (changedMd) refreshCalendarSections(kanban);
-		}
-		if (hasMedia && changedMedia) {
-			swapped += refreshMediaSections(kanban, data, callbacks, this.app, this.plugin.settings, this);
-		}
-		if (swapped > 0) {
-			// Refreshed sections were replaced (new DOM), so their grip/card
-			// DnD handlers are gone — re-wire DnD across the whole kanban.
-			for (const fn of this.dndCleanupFns) fn();
-			this.dndCleanupFns = [];
-			setupDragAndDrop(kanban, callbacks, this.dndCleanupFns, { skipSectionGrip: immersive });
-			// The wipe above also dropped the immersive grid's whole-tile
-			// move-drag + context menu (same cleanup array) — re-wire them,
-			// or the board looks normal yet tiles can't be dragged until a
-			// full re-render (lock→edit layout).
-			this.rewireImmersiveGridDnD(kanban);
-			if (immersive) this.attachImmersiveResizeHandles(kanban);
+	/** Cancel the stats-banner debounce (own timer, kept next to the banner
+	 *  code). The vault watcher calls this on teardown. */
+	private cancelBannerStatsDebounce(): void {
+		if (this.bannerStatsTimer) {
+			window.clearTimeout(this.bannerStatsTimer);
+			this.bannerStatsTimer = null;
 		}
 	}
 
-	/** Music state changed (transport tick, playlist edit from any surface):
-	 *  refresh only the derived parts of the sidebar widget. Desktop-only. */
+	// Sidebar widget data changed from another surface (service event, or a
+	// network payload landing after first paint): repaint just that widget.
+	// The triggers + the swap mechanics live in view/widget-refresh.ts.
 	private onMusicChanged(): void {
-		const root = this.containerEl.children[1] as HTMLElement | undefined;
-		if (root) refreshMusicWidget(root);
+		refreshMusicInPlace(this.widgetRefreshHost());
 	}
 
-	/** Habit data changed (toggle/add/rename/remove from any view or overlay):
-	 *  refresh the habit widget in place + the mobile habit panel, and let the
-	 *  banner debounce recompute when it shows the habit heatmap. */
 	private onHabitChanged(): void {
-		const root = this.containerEl.children[1] as HTMLElement | undefined;
-		if (root) refreshHabitWidget(root);
-		const panel = root?.querySelector<HTMLElement>('.dashboard-mobile-widget-panel');
-		if (panel && this.mobileWidgetExpanded === 'habit') {
-			panel.empty();
-			renderSidebarHabitWidget(panel, this.app);
-		}
-		this.debouncedRefreshBannerStats();
+		refreshHabitInPlace(this.widgetRefreshHost());
 	}
 
-	/** Expense data changed (entry added / record deleted from any view or
-	 *  the stats overlay): refresh the widget's derived labels in place + the
-	 *  mobile expense panel. The form inputs are never touched, so typing in
-	 *  this view survives entries made elsewhere. */
 	private onExpenseChanged(): void {
-		const root = this.containerEl.children[1] as HTMLElement | undefined;
-		if (root) refreshExpenseWidget(root);
-		const panel = root?.querySelector<HTMLElement>('.dashboard-mobile-widget-panel');
-		if (panel && this.mobileWidgetExpanded === 'expense') {
-			panel.empty();
-			renderSidebarExpenseWidget(panel, this.app);
-		}
+		refreshExpenseInPlace(this.widgetRefreshHost());
 	}
 
-	/** Pomodoro data changed externally (focus re-sync merged another
-	 *  device's records): re-render the widget in place + the mobile panel.
-	 *  Timer state lives in the service, so a running session is untouched. */
 	private onPomodoroDataChanged(): void {
-		const service = this.pomodoroService;
-		if (!service) return;
-		this.refreshDataWidget('.dashboard-sidebar-pomodoro', (c) =>
-			renderSidebarPomodoro(c, service, this.plugin.settings, this.app, bg => {
-				this.plugin.settings = { ...this.plugin.settings, pomodoroBackground: bg };
-				void this.plugin.saveSettings();
-				this.plugin.refreshAllDashboards();
-			}));
-		const root = this.containerEl.children[1] as HTMLElement | undefined;
-		const panel = root?.querySelector<HTMLElement>('.dashboard-mobile-widget-panel');
-		if (panel && this.mobileWidgetExpanded === 'pomodoro') {
-			panel.empty();
-			renderSidebarPomodoro(panel, service, this.plugin.settings);
-		}
+		refreshPomodoroInPlace(this.widgetRefreshHost(), this.pomodoroService);
 	}
 
-	/** Reading data changed externally (focus re-sync merged another device's
-	 *  records): re-render the widget in place + the mobile panel. */
 	private onReadingDataChanged(): void {
-		const service = this.readingService;
-		if (!service) return;
-		this.refreshDataWidget('.dashboard-sidebar-reading', (c) =>
-			renderSidebarReading(c, service));
-		const root = this.containerEl.children[1] as HTMLElement | undefined;
-		const panel = root?.querySelector<HTMLElement>('.dashboard-mobile-widget-panel');
-		if (panel && this.mobileWidgetExpanded === 'reading') {
-			panel.empty();
-			renderSidebarReading(panel, service);
-		}
+		refreshReadingInPlace(this.widgetRefreshHost(), this.readingService);
 	}
 
-	/** Holiday data can arrive over the network after the first mobile paint.
-	 *  Update only the lunar widget/panel; a second full dashboard render here
-	 *  was one of the startup memory spikes that could trigger a WebView reload. */
 	private refreshLunarWidgetsInPlace(): void {
-		this.refreshDataWidget('.dashboard-sidebar-lunar', (container) =>
-			renderSidebarLunarWidget(container, this.holidayData, this.app));
-		const root = this.containerEl.children[1] as HTMLElement | undefined;
-		const panel = root?.querySelector<HTMLElement>('.dashboard-mobile-widget-panel');
-		if (panel && this.mobileWidgetExpanded === 'lunar') {
-			panel.empty();
-			renderSidebarLunarWidget(panel, this.holidayData, this.app);
-		}
+		refreshLunarInPlace(this.widgetRefreshHost());
 	}
 
-	/** Re-render one sidebar data widget in place: render into a fresh mount
-	 *  at the same position, then drop the old node (emptying in place would
-	 *  nest a second .dashboard-sidebar-widget inside and confuse the
-	 *  sidebar's widget enumeration/drag handlers). The swapped widget's
-	 *  internal scroll (habit list, music playlist) carries over the swap so
-	 *  a data refresh elsewhere never yanks the widget's viewport. */
-	private refreshDataWidget(selector: string, render: (container: HTMLElement) => void): void {
-		const root = this.containerEl.children[1] as HTMLElement | undefined;
-		const widget = root?.querySelector<HTMLElement>(selector);
-		if (!widget || !widget.isConnected) return;
-		const parent = widget.parentElement;
-		if (!parent) return;
-		const scrollStates = captureScrollStates(widget);
-		const mount = createDiv();
-		mount.addClass('dashboard-sidebar-widget-mount');
-		// Carry the replaced widget's identity onto the mount: the stacked
-		// widget grid keys its per-type sizing off [data-widget-key] on the
-		// DIRECT child, which after this swap is the mount, not the widget.
-		const key = widget.dataset.widgetKey;
-		if (key) mount.dataset.widgetKey = key;
-		const span = widget.style.getPropertyValue('--db-widget-span');
-		if (span) mount.style.setProperty('--db-widget-span', span);
-		// Immersive: the widget IS a grid tile — without carrying its id and
-		// inline placement the swapped-in mount drops to auto placement and
-		// slides off to the end of the board. Same carry pattern as the key.
-		const immId = widget.dataset.immId;
-		if (immId) {
-			mount.dataset.immId = immId;
-			if (widget.style.gridColumn) mount.style.gridColumn = widget.style.gridColumn;
-			if (widget.style.gridRow) mount.style.gridRow = widget.style.gridRow;
-			if (widget.style.minHeight) mount.style.minHeight = widget.style.minHeight;
-		}
-		parent.insertBefore(mount, widget);
-		widget.remove();
-		render(mount);
-		restoreScrollStates(mount, scrollStates);
-		// The corner resize grip and the hover delete button lived inside the
-		// swapped-out card.
-		if (immId && isImmersiveLayout(this.plugin.settings, this.data)) {
-			attachImmersiveResizeHandle(mount, immId, () => this.immItems, next => this.commitImmersiveItems(next));
-			if (immId.startsWith('widget:')) {
-				attachImmersiveWidgetDelete(mount, removeId => void this.removeImmersiveItem(removeId));
-			}
-		}
+	/** Persist a pomodoro background picked inside the widget's palette and
+	 *  repaint every board — it is a global setting, not a per-card style. */
+	private applyPomodoroBackground(bg: WidgetBackground | undefined): void {
+		this.plugin.settings = { ...this.plugin.settings, pomodoroBackground: bg };
+		void this.plugin.saveSettings();
+		this.plugin.refreshAllDashboards();
+	}
+
+	/** The view's side of `NewNoteHost`, built once. `data()` and `sync()` are
+	 *  late-bound: a request can arrive after a board switch. */
+	private newNoteHost(): NewNoteHost {
+		this.newNote ??= {
+			app: this.app,
+			data: () => this.data,
+			sync: () => this.sync,
+			libraryNewNotePath: () => this.plugin.settings.libraryNewNotePath,
+			openNotePopover: file => this.openNotePopover(file),
+			refreshSectionInPlace: name => this.refreshSectionInPlace(name),
+		};
+		return this.newNote;
+	}
+
+	/** The view's side of `MobilePanelHost`, built once. Mutable values are
+	 *  getters — a tap can arrive long after the settings changed. */
+	private mobilePanelHost(): MobilePanelHost {
+		this.mobilePanel ??= {
+			app: this.app,
+			state: this.mobilePanelState,
+			settings: () => this.plugin.settings,
+			data: () => this.data,
+			root: () => this.containerEl.children[1] as HTMLElement | undefined,
+			holiday: () => this.holidayData,
+			pomodoro: () => this.pomodoroService,
+			reading: () => this.readingService,
+			sync: () => this.sync,
+			openNote: (file, line) => this.openNote(file, undefined, line),
+			executeAction: action => void this.executeAction(action),
+			navigateToPath: path => { void this.navigateToPath(path); },
+			openAddActionModal: () => this.openAddActionModal(),
+			applyPomodoroBackground: bg => this.applyPomodoroBackground(bg),
+		};
+		return this.mobilePanel;
+	}
+
+	/** The view's side of `TaskWriteHost`, built once. `data()` and `sync()`
+	 *  are late-bound: a click can land after a board switch. */
+	private taskWriteHost(): TaskWriteHost {
+		this.taskWrites ??= {
+			app: this.app,
+			data: () => this.data,
+			settings: () => this.plugin.settings,
+			sync: () => this.sync,
+		};
+		return this.taskWrites;
+	}
+
+	/** The view's side of `ChangeScopeHost`, built once. `kanban()` and
+	 *  `data()` are late-bound: a vault event can arrive mid-board-switch. */
+	private changeScopeHost(): ChangeScopeHost {
+		this.changeScope ??= {
+			app: this.app,
+			data: () => this.sync.getData(),
+			settings: () => this.plugin.settings,
+			kanban: () => (this.containerEl.children[1] as HTMLElement | undefined)
+				?.querySelector('.dashboard-kanban') as HTMLElement | null,
+			callbacks: () => this.createCallbacks(),
+			hoverParent: () => this,
+			refreshSectionInPlace: name => this.refreshSectionInPlace(name),
+			fullRender: data => this.render(data),
+			rewireAfterSwap: (kanban, immersive, callbacks) => this.rewireAfterSwap(kanban, immersive, callbacks),
+		};
+		return this.changeScope;
+	}
+
+	/** Swapped sections came back as new DOM: their grip/card drags are gone,
+	 *  so re-wire across the whole kanban. `dndCleanupFns` is wiped first or
+	 *  the old (dead) listeners would be re-run on the next pass. */
+	private rewireAfterSwap(kanban: HTMLElement, immersive: boolean, callbacks: RenderCallbacks): void {
+		for (const fn of this.dndCleanupFns) fn();
+		this.dndCleanupFns = [];
+		setupDragAndDrop(kanban, callbacks, this.dndCleanupFns, { skipSectionGrip: immersive });
+		// The wipe above also dropped the immersive grid's whole-tile move-drag
+		// + context menu (same cleanup array) — re-wire them, or the board
+		// looks normal yet tiles can't be dragged until a full re-render.
+		this.rewireImmersiveGridDnD(kanban);
+		if (immersive) this.attachImmersiveResizeHandles(kanban);
+	}
+
+	/** The view's side of `WidgetRefreshHost`, built once. Every field is a
+	 *  getter over live state, so a service event always sees the current
+	 *  settings and the holiday map as it stands (it may still be empty). */
+	private widgetRefreshHost(): WidgetRefreshHost {
+		this.widgetHost ??= {
+			app: this.app,
+			root: () => this.containerEl.children[1] as HTMLElement | undefined,
+			settings: () => this.plugin.settings,
+			data: () => this.data,
+			holiday: () => this.holidayData,
+			expandedMobileWidget: () => this.mobilePanelState.expanded,
+			immItems: () => this.immItems,
+			commitImmersiveItems: next => this.commitImmersiveItems(next),
+			removeImmersiveItem: itemId => this.removeImmersiveItem(itemId),
+			applyPomodoroBackground: bg => this.applyPomodoroBackground(bg),
+			refreshBannerStats: () => this.debouncedRefreshBannerStats(),
+		};
+		return this.widgetHost;
 	}
 
 	/** Recompute the stats banner in place (only when in stats mode). Vault
@@ -3508,123 +2368,40 @@ export class DashboardView extends ItemView implements HoverParent {
 		this.dndCleanupFns = [];
 	}
 
-	/**
-	 * Floating "back to top" button pinned to the bottom-right corner.
-	 *
-	 * The active scroll element differs by layout: on desktop the inner
-	 * `.dashboard-kanban` scrolls; on mobile (<=640px) the `.apex-dashboard-root`
-	 * itself scrolls. We detect which one is actually scrollable and listen to it,
-	 * so the button always scrolls the right container and only appears once the
-	 * user has scrolled down. Cleanup is registered so listeners are torn down on
-	 * re-render / close.
-	 */
 	private renderScrollToTop(container: HTMLElement): void {
-		const btn = container.createEl('button', {
-			cls: 'dashboard-scroll-top',
-			attr: { 'aria-label': t('renderer.scrollToTop'), type: 'button' },
-		});
-		setIcon(btn, 'arrow-up');
-
-		// Pick the element that actually scrolls in the current layout.
-		const root = container;
-		const kanbanEl = container.querySelector('.dashboard-kanban');
-		const regionEl = container.querySelector('.dashboard-scroll-region');
-		const pickScroller = (): HTMLElement => {
-			if (window.innerWidth <= 640) return root;
-			// Stacked layout: the shared region scrolls (widgets + sections);
-			// the kanban itself is a static pass-through there.
-			return (regionEl as HTMLElement) ?? (kanbanEl as HTMLElement) ?? root;
-		};
-
-		const updateVisibility = (): void => {
-			const scroller = pickScroller();
-			const threshold = Math.max(160, scroller.clientHeight * 0.3);
-			if (scroller.scrollTop > threshold) {
-				btn.addClass('dashboard-scroll-top--visible');
-			} else {
-				btn.removeClass('dashboard-scroll-top--visible');
-			}
-		};
-
-		btn.addEventListener('click', () => {
-			const scroller = pickScroller();
-			scroller.scrollTo({ top: 0, behavior: 'smooth' });
-		});
-
-		// Listen on all candidates: cheap, and covers desktop↔mobile resizes.
-		// The region listener matters for stacked AND immersive (the region is
-		// the scroller in both; scroll events do not bubble up from it).
-		const onKanbanScroll = (): void => updateVisibility();
-		const onRootScroll = (): void => updateVisibility();
-		const onResize = (): void => updateVisibility();
-		if (kanbanEl) kanbanEl.addEventListener('scroll', onKanbanScroll, { passive: true });
-		if (regionEl) regionEl.addEventListener('scroll', onRootScroll, { passive: true });
-		root.addEventListener('scroll', onRootScroll, { passive: true });
-		window.addEventListener('resize', onResize);
-
-		this.cleanupFns.push(() => {
-			btn.remove();
-			if (kanbanEl) kanbanEl.removeEventListener('scroll', onKanbanScroll);
-			if (regionEl) regionEl.removeEventListener('scroll', onRootScroll);
-			root.removeEventListener('scroll', onRootScroll);
-			window.removeEventListener('resize', onResize);
-		});
-
-		updateVisibility();
+		renderScrollToTop(container, (fn) => this.cleanupFns.push(fn));
 	}
 
 	private startReminderChecker(): void {
-		this.checkReminders();
-		this.reminderTimer = window.setInterval(() => this.checkReminders(), DashboardView.REMINDER_CHECK_MS);
+		this.reminderTimer = startReminderScan(() => this.checkReminders());
 	}
 
 	private stopReminderChecker(): void {
-		if (this.reminderTimer) {
-			window.clearInterval(this.reminderTimer);
-			this.reminderTimer = null;
-		}
+		stopInterval(this.reminderTimer);
+		this.reminderTimer = null;
 	}
 
 	private startWeatherRefresh(): void {
-		this.weatherRefreshTimer = window.setInterval(() => {
-			if (!this.data) return;
-			const hasWeather = this.data.columns.some(col =>
-				col.cards.some(c => c.type === 'weather')
-			);
-			// The sidebar weather widget DOM is preserved across re-renders, so it
-			// no longer refreshes as a side effect of re-renders - pull it into the
-			// same periodic refresh. The widget renders through the weather cache,
-			// so this only refetches once the TTL has lapsed.
-			const hasSidebarWeather = this.plugin.settings.widgetWeatherEnabled;
-			if (!hasWeather && !hasSidebarWeather) return;
-			// Refresh in place instead of rebuilding the whole dashboard. Full
-			// render() here was the main source of periodic jank on mobile - it
-			// emptied and rebuilt every card/section.
-			clearWeatherCache();
-			const root = this.containerEl.children[1] as HTMLElement | undefined;
-			if (!root) return;
-			if (hasWeather) refreshWeatherCards(root, this.data);
-			if (hasSidebarWeather) refreshSidebarWeatherWidget(root, this.plugin.settings, this.app);
-		}, DashboardView.WEATHER_REFRESH_MS);
+		this.weatherRefreshTimer = startWeatherTick({
+			app: this.app,
+			data: () => this.data,
+			settings: () => this.plugin.settings,
+			rootEl: () => this.containerEl.children[1] as HTMLElement | undefined,
+		});
 	}
 
 	private stopWeatherRefresh(): void {
-		if (this.weatherRefreshTimer) {
-			window.clearInterval(this.weatherRefreshTimer);
-			this.weatherRefreshTimer = null;
-		}
-		clearWeatherCache();
+		stopWeatherTick(this.weatherRefreshTimer);
+		this.weatherRefreshTimer = null;
 	}
 
 	private startDayRolloverChecker(): void {
-		this.dayRolloverTimer = window.setInterval(() => this.checkDayRollover(), DashboardView.DAY_ROLLOVER_CHECK_MS);
+		this.dayRolloverTimer = startRolloverTick(() => this.checkDayRollover());
 	}
 
 	private stopDayRolloverChecker(): void {
-		if (this.dayRolloverTimer) {
-			window.clearInterval(this.dayRolloverTimer);
-			this.dayRolloverTimer = null;
-		}
+		stopInterval(this.dayRolloverTimer);
+		this.dayRolloverTimer = null;
 	}
 
 	private checkDayRollover(): void {
@@ -3641,182 +2418,14 @@ export class DashboardView extends ItemView implements HoverParent {
 	}
 
 	private checkReminders(): void {
-		if (!this.data) return;
-		const now = new Date();
-
-		for (const col of this.data.columns) {
-			for (const card of col.cards) {
-				for (let i = 0; i < card.tasks.length; i++) {
-					const task = card.tasks[i]!;
-					if (!task.reminder || task.checked) continue;
-
-					const key = `${card.id}-${JSON.stringify([i])}`;
-					if (this.firedReminders.has(key)) continue;
-
-					const parts = task.reminder.trim().split(/\s+/);
-					if (parts.length < 2) continue;
-					const [dateStr, timeStr] = parts;
-					const [year, month, day] = dateStr!.split('-').map(Number);
-					const [hour, min] = timeStr!.split(':').map(Number);
-					if (!year || !month || !day) continue;
-					const due = new Date(year, month - 1, day, hour ?? 0, min ?? 0);
-
-					if (now >= due) {
-						this.firedReminders.add(key);
-						const cleanText = task.text.replace(/\[\[[^\]]+\]\]/g, (match) => {
-							const inner = match.slice(2, -2);
-							return inner.split('|').pop()?.split('/').pop()?.replace(/\.md$/, '') ?? inner;
-						});
-						this.showReminderModal(cleanText, card.id, [i]);
-					}
-				}
-			}
-
-			// Workflow (pipeline) notes: a note-level `due` + `remind: true`
-		// frontmatter pair raises the same reminder modal. Dismiss clears the
-		// alarm; snooze pushes the due value an hour out (written back to the
-		// note). The scan rides the metadata cache — no file reads.
-		for (const col of this.data.columns) {
-			if (col.sectionType !== 'pipeline' || !col.pipelineConfig) continue;
-			const cfg = col.pipelineConfig;
-			for (const file of this.app.vault.getMarkdownFiles()) {
-				if (!file.path.toLowerCase().startsWith(cfg.rootFolder.toLowerCase() + '/')) continue;
-				const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
-				if (!fm || fm['remind'] !== true) continue;
-				const due = parseNoteDue(fm);
-				if (!due) continue;
-				const key = `pipe:${file.path}`;
-				if (this.firedReminders.has(key)) continue;
-				const [y, mo, d] = due.date.split('-').map(Number);
-				if (!y || !mo || !d) continue;
-				const [h, mi] = (due.time ?? '09:00').split(':').map(Number);
-				const when = new Date(y, mo - 1, d, h ?? 9, mi ?? 0);
-				if (now < when) continue;
-				this.firedReminders.add(key);
-				const modal = new ReminderNoticeModal(
-					this.app,
-					file.basename,
-					() => {
-						// Dismiss: drop the alarm flag, keep the due value.
-						void this.app.fileManager.processFrontMatter(file, (f: Record<string, unknown>) => { delete f['remind']; });
-					},
-					() => {
-						// Snooze one hour, re-arm.
-						const snoozed = new Date(Date.now() + 60 * 60 * 1000);
-						const pad = (n: number) => String(n).padStart(2, '0');
-						const value = `${snoozed.getFullYear()}-${pad(snoozed.getMonth() + 1)}-${pad(snoozed.getDate())} ${pad(snoozed.getHours())}:${pad(snoozed.getMinutes())}`;
-						this.firedReminders.delete(key);
-						void this.app.fileManager.processFrontMatter(file, (f: Record<string, unknown>) => { f['due'] = value; f['remind'] = true; });
-					},
-				);
-				modal.open();
-			}
-		}
-
-		// PM projects: the note's `keyDate` + `remind: true` pair raises the
-		// same reminder modal (dismiss clears the flag; snooze pushes the key
-		// date one hour out). Metadata-cache only — no file reads.
-		for (const col of this.data.columns) {
-			if (col.sectionType !== 'pm' || !col.pmConfig) continue;
-			const rootFolder = col.pmConfig.rootFolder.trim().replace(/^\/+|\/+$/g, '').toLowerCase();
-			if (!rootFolder) continue;
-			for (const file of this.app.vault.getMarkdownFiles()) {
-				if (!file.path.toLowerCase().startsWith(rootFolder + '/')) continue;
-				const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
-				if (!fm || fm['remind'] !== true) continue;
-				const keyDate = pmKeyDate(fm);
-				if (!keyDate) continue;
-				const key = `pm:${file.path}`;
-				if (this.firedReminders.has(key)) continue;
-				const [y, mo, d] = keyDate.date.split('-').map(Number);
-				if (!y || !mo || !d) continue;
-				const [h, mi] = (keyDate.time ?? '09:00').split(':').map(Number);
-				const when = new Date(y, mo - 1, d, h ?? 9, mi ?? 0);
-				if (now < when) continue;
-				this.firedReminders.add(key);
-				const modal = new ReminderNoticeModal(
-					this.app,
-					file.basename,
-					() => {
-						// Dismiss: drop the alarm flag, keep the key date.
-						void this.app.fileManager.processFrontMatter(file, (f: Record<string, unknown>) => { delete f['remind']; });
-					},
-					() => {
-						// Snooze one hour, re-arm.
-						const snoozed = new Date(Date.now() + 60 * 60 * 1000);
-						const pad = (n: number) => String(n).padStart(2, '0');
-						const value = `${snoozed.getFullYear()}-${pad(snoozed.getMonth() + 1)}-${pad(snoozed.getDate())} ${pad(snoozed.getHours())}:${pad(snoozed.getMinutes())}`;
-						this.firedReminders.delete(key);
-						void this.app.fileManager.processFrontMatter(file, (f: Record<string, unknown>) => { f['keyDate'] = value; f['remind'] = true; });
-					},
-				);
-				modal.open();
-			}
-		}
-
-		// Countdown reminders (one per configured countdown)
-			if (this.plugin.settings.countdownEnabled) {
-				for (const cd of this.plugin.settings.countdowns ?? []) {
-					if (!cd.targetDate || cd.reminderDays <= 0) continue;
-					const ckKey = `countdown-remind-${cd.id}`;
-					if (this.firedReminders.has(ckKey)) continue;
-					const raw = cd.targetDate;
-					const target = raw.includes('T') ? new Date(raw) : new Date(raw + 'T00:00:00');
-					const diffMs = target.getTime() - now.getTime();
-					const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-					if (daysLeft >= 0 && daysLeft <= cd.reminderDays) {
-						this.firedReminders.add(ckKey);
-						const label = cd.label || cd.targetDate;
-						new Notice(t('countdown.reminderNotice', { label, days: String(daysLeft) }));
-					}
-				}
-			}
-		}
-
-		// Anniversary reminders: fire once a year on the entry's month/day
-		// (outside the columns loop — a per-column placement would just repeat
-		// the same guarded check). Feb 29 entries roll to Mar 1 in common
-		// years via the Date overflow in anniversaryDateThisYear. Lunar
-		// entries fire on the lunar anniversary's solar date this year (it
-		// drifts through the Gregorian calendar), counted in lunar years.
-		if (this.plugin.settings.anniversaryEnabled) {
-			for (const av of this.plugin.settings.anniversaries ?? []) {
-				if (!av.annualReminder || !av.startDate) continue;
-				const avKey = `anniversary-remind-${av.id}`;
-				if (this.firedReminders.has(avKey)) continue;
-				const start = parseAnniversaryDate(av.startDate);
-				if (!start) continue;
-				const lunar = av.calendar === 'lunar';
-				const today = lunar ? lunarAnniversaryThisYear(start, now) : anniversaryDateThisYear(start, now);
-				if (now.getFullYear() === today.getFullYear()
-					&& now.getMonth() === today.getMonth()
-					&& now.getDate() === today.getDate()) {
-					this.firedReminders.add(avKey);
-					const label = av.label || av.startDate;
-					const years = lunar
-						? String(lunarYearsBetween(start, now) ?? (now.getFullYear() - start.getFullYear()))
-						: String(now.getFullYear() - start.getFullYear());
-					new Notice(t('anniversary.reminderNotice', { label, years }));
-				}
-			}
-		}
-	}
-
-	private showReminderModal(taskText: string, cardId: string, taskPath: number[]): void {
-		const modal = new ReminderNoticeModal(
-			this.app,
-			taskText,
-			() => {
-				void this.sync.editTaskReminder(cardId, taskPath, undefined);
+		checkReminders({
+			app: this.app,
+			data: this.data,
+			settings: this.plugin.settings,
+			fired: this.firedReminders,
+			editTaskReminder: (cardId, taskPath, reminder) => {
+				void this.sync.editTaskReminder(cardId, taskPath, reminder);
 			},
-			() => {
-				const snoozed = new Date(Date.now() + 60 * 60 * 1000);
-				const pad = (n: number) => String(n).padStart(2, '0');
-				const newReminder = `${snoozed.getFullYear()}-${pad(snoozed.getMonth() + 1)}-${pad(snoozed.getDate())} ${pad(snoozed.getHours())}:${pad(snoozed.getMinutes())}`;
-				this.firedReminders.delete(`${cardId}-${JSON.stringify(taskPath)}`);
-				void this.sync.editTaskReminder(cardId, taskPath, newReminder);
-			},
-		);
-		modal.open();
+		});
 	}
 }

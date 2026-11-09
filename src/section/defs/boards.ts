@@ -52,6 +52,7 @@ function addPipelineSortButton(ctx: SectionContext): void {
  *  skill dispatch). */
 registerSection({
 	types: ['pipeline'],
+	scan: 'files',
 	picker: [{ type: 'pipeline', icon: 'workflow', labelKey: 'renderer.typePipeline', order: 70 }],
 	headerActions(ctx) {
 		addPipelineSortButton(ctx);
@@ -74,6 +75,7 @@ registerSection({
  *  too — card drag-reorder is HTML5 DnD and stays inert on touch. */
 registerSection({
 	types: ['pm'],
+	scan: 'files',
 	picker: [{ type: 'pm', icon: 'briefcase', labelKey: 'renderer.typePm', order: 60 }],
 	headerActions(ctx) {
 		const emit = (name: string) => () => ctx.el.dispatchEvent(new CustomEvent(name, {

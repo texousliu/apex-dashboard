@@ -23,6 +23,9 @@ import { readFileSync } from 'node:fs';
 
 const modalSrc = readFileSync('src/calendar-modal.ts', 'utf-8');
 const viewSrc = readFileSync('src/view.ts', 'utf-8');
+// The vault listeners (and their record() helper) moved to view/vault-watcher.ts
+// in Phase 5; source assertions follow the code.
+const watcherSrc = readFileSync('src/view/vault-watcher.ts', 'utf-8');
 
 // 1. Modal side: invalidation + dispatch, wired into the add path.
 assert.ok(modalSrc.includes('function requestCalendarRefresh('),
@@ -91,7 +94,7 @@ assert.ok(modalSrc.includes("querySelector<HTMLElement>('.apex-dashboard-root')"
 //    is still in place (so the two sides never silently drift apart).
 assert.ok(modalSrc.includes('dashboard-file destination'),
 	'modal documents why the explicit nudge is required');
-assert.ok(viewSrc.includes("if (file.path !== dashboardPath) this.vaultChangePaths.add(file.path);"),
+assert.ok(watcherSrc.includes("if (file.path !== dashboardPath) this.changedPaths.add(file.path);"),
 	'record() still skips the dashboard path (the premise of this fix)');
 
 console.log('verify-calendar-add-refresh: all checks passed');

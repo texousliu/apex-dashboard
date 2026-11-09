@@ -68,9 +68,21 @@ export interface SectionContext {
 	renderCards(): void;
 }
 
+/** How a section keeps itself up to date when the vault changes.
+ *  `files` — rescans notes, so an edit inside its scope must rebuild it;
+ *  `media` — reacts to media files only;
+ *  `none`  — never rescanned (it renders board data, not vault contents). */
+export type SectionScan = 'files' | 'media' | 'none';
+
 export interface SectionDefinition {
 	/** Canonical type ids this definition handles. */
 	readonly types: readonly string[];
+	/** What the vault watcher must re-scan for this section (default 'none').
+	 *  Declared here so "which sections rescan the vault" is answered by the
+	 *  same entry that says how to draw them — it used to be two Sets living in
+	 *  the refresh module, which meant a new scanning section type had to be
+	 *  added in two places or it would silently never refresh. */
+	readonly scan?: SectionScan;
 	/** Retired ids that normalize to the first canonical type. */
 	readonly aliases?: readonly string[];
 	/** Offered in the "add a section" chooser, in registration order. */
@@ -78,8 +90,6 @@ export interface SectionDefinition {
 	/** Render a header that the row needs before the body exists (e.g. web
 	 *  sections have a fixed frame height). */
 	readonly fixedHeight?: boolean;
-	/** Holds generic cards: the parser skips it when extracting card aliases. */
-	readonly holdsCards?: boolean;
 	/** Extra header buttons, left to right, rendered before `remove()`. */
 	headerActions?(ctx: SectionContext): void;
 	render(ctx: SectionContext): void;
@@ -97,6 +107,11 @@ export function registerSection(def: SectionDefinition): void {
 		byType.set(type, def);
 	}
 	definitions.push(def);
+}
+
+/** What the vault watcher must re-scan for `type` (unknown types never do). */
+export function sectionScan(type: string): SectionScan {
+	return byType.get(type)?.scan ?? 'none';
 }
 
 /** The definition for a canonical type (or an alias). */
