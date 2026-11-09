@@ -167,6 +167,8 @@ for (const file of [
 	'src/rss-config-modal.ts',
 	'src/media-config-modal.ts',
 	'src/dataview-config-modal.ts',
+	'src/notes-config-modal.ts',
+	'src/library-config-modal.ts',
 ]) {
 	const src = readFileSync(file, 'utf8');
 	assert.ok(src.includes('extends SectionConfigModal'), `5: ${file} uses the shared shell`);

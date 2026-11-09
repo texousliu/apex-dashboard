@@ -1,18 +1,22 @@
-import { App, Modal } from 'obsidian';
+import type { App } from 'obsidian';
 import type { LibraryConfig } from './types';
 import { extractFrontmatterProperties } from './library-section';
 import { t } from './i18n';
-import { applyModalTheme } from './modal-theme';
+import { SectionConfigModal } from './section/config-modal';
 import { ExcludeFoldersEditor } from './exclude-folders-editor';
 import { PropertyFiltersEditor } from './property-filters-editor';
 import { VisiblePropertiesEditor } from './visible-properties-editor';
 import { TemplateFilesEditor } from './template-files-editor';
 import { sectionTemplatePaths } from './library-new-note';
 
-export class LibraryConfigModal extends Modal {
+export class LibraryConfigModal extends SectionConfigModal {
 	private config: LibraryConfig;
 	private availableProps: Map<string, Set<string>>;
 	private onSave: (config: LibraryConfig) => void;
+	private filterEditor: PropertyFiltersEditor | null = null;
+	private excludeEditor: ExcludeFoldersEditor | null = null;
+	private pinnedEditor: VisiblePropertiesEditor | null = null;
+	private templateEditor: TemplateFilesEditor | null = null;
 
 	constructor(
 		app: App,
@@ -25,35 +29,27 @@ export class LibraryConfigModal extends Modal {
 		this.availableProps = extractFrontmatterProperties(app);
 	}
 
-	onOpen(): void {
-		const { contentEl, containerEl } = this;
-		contentEl.empty();
-		contentEl.addClass('dashboard-library-config-modal');
-		containerEl.addClass('modal--dashboard');
-		containerEl.parentElement?.addClass('modal-bg--dashboard');
-		applyModalTheme(containerEl);
+	protected title(): string {
+		return t('library.configTitle');
+	}
+
+	/** Sits flush with the dashboard (no modal chrome behind the frame). */
+	protected styleContainer(containerEl: HTMLElement): void {
 		containerEl.setCssProps({
 			background: 'transparent',
 			backgroundColor: 'transparent',
 			border: 'none',
 			boxShadow: 'none',
 		});
+	}
 
-		const container = contentEl.createDiv({ cls: 'dashboard-modal dashboard-modal--compact' });
-
-		// Header
-		const header = container.createDiv({ cls: 'dashboard-modal-header' });
-		header.createDiv({ cls: 'dashboard-modal-title', text: t('library.configTitle') });
-
-		// Body
-		const body = container.createDiv({ cls: 'dashboard-modal-body' });
-
+	protected renderBody(body: HTMLElement): void {
 		// Filters — shared with the folder-section config (PropertyFiltersEditor).
 		// 'tags' stays pickable here: evaluateFilter's tags branch and the value
 		// extractor make it filter like any other property.
 		const filtersSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		filtersSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('library.property') });
-		const filterEditor = new PropertyFiltersEditor(
+		this.filterEditor = new PropertyFiltersEditor(
 			this.app,
 			filtersSection.createDiv({ cls: 'dashboard-library-config-filters' }),
 			this.config.filters,
@@ -92,7 +88,7 @@ export class LibraryConfigModal extends Modal {
 		const excludeSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		excludeSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('exclude.folders') });
 		excludeSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('exclude.foldersHint') });
-		const excludeEditor = new ExcludeFoldersEditor(this.app, excludeSection, this.config.excludeFolders ?? []);
+		this.excludeEditor = new ExcludeFoldersEditor(this.app, excludeSection, this.config.excludeFolders ?? []);
 
 		// Card properties (grid view)
 		const propsSection = body.createDiv({ cls: 'dashboard-library-config-section' });
@@ -124,14 +120,7 @@ export class LibraryConfigModal extends Modal {
 
 		// Pinned properties: picked keys show first (all of them); only cards
 		// hitting none fall back to the automatic slice above.
-		const pinnedEditor = new VisiblePropertiesEditor(this.app, propsSection, this.config.visibleProperties ?? []);
-
-		// Footer
-		const footer = container.createDiv({ cls: 'dashboard-modal-footer' });
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--cancel',
-			text: t('common.cancel'),
-		}).addEventListener('click', () => this.close());
+		this.pinnedEditor = new VisiblePropertiesEditor(this.app, propsSection, this.config.visibleProperties ?? []);
 
 		// New-note templates: the body of any of these notes seeds notes created
 		// by the toolbar "+" (frontmatter merged from the section's filter
@@ -139,7 +128,7 @@ export class LibraryConfigModal extends Modal {
 		const tplSection = body.createDiv({ cls: 'dashboard-library-config-section' });
 		tplSection.createDiv({ cls: 'dashboard-library-config-section-title', text: t('library.newNoteTemplate') });
 		tplSection.createDiv({ cls: 'dashboard-library-config-hint', text: t('library.newNoteTemplateHint') });
-		const tplEditor = new TemplateFilesEditor(this.app, tplSection, sectionTemplatePaths(this.config));
+		this.templateEditor = new TemplateFilesEditor(this.app, tplSection, sectionTemplatePaths(this.config));
 
 		// Where the toolbar "new note" opens the fresh note. 'tab' is the
 		// historical library behavior → the default, persisted as undefined.
@@ -153,30 +142,24 @@ export class LibraryConfigModal extends Modal {
 			this.config.newNoteOpenMode = openModeSelect.value === 'popover' ? 'popover' : undefined;
 		});
 
-		footer.createEl('button', {
-			cls: 'dashboard-modal-btn dashboard-modal-btn--confirm',
-			text: t('common.save'),
-		}).addEventListener('click', () => {
-			const folders = excludeEditor.value;
-			const picked = pinnedEditor.value;
-			const templates = tplEditor.value;
-			this.onSave({
-				...this.config,
-				// The shared editor owns the rows (it works on copies); its value
-				// is the saved truth — half-configured rows (no property picked)
-				// drop out here instead of persisting as no-op filters.
-				filters: filterEditor.value,
-				excludeFolders: folders.length > 0 ? folders : undefined,
-				visibleProperties: picked.length > 0 ? picked : undefined,
-				templatePaths: templates.length > 0 ? templates : undefined,
-				templatePath: templates[0],
-				newNoteOpenMode: this.config.newNoteOpenMode === 'popover' ? 'popover' : undefined,
-			});
-			this.close();
-		});
 	}
 
-	onClose(): void {
-		this.contentEl.empty();
+	protected submit(): void {
+		const folders = this.excludeEditor?.value ?? [];
+		const picked = this.pinnedEditor?.value ?? [];
+		const templates = this.templateEditor?.value ?? [];
+		this.onSave({
+			...this.config,
+			// The shared editor owns the rows (it works on copies); its value
+			// is the saved truth — half-configured rows (no property picked)
+			// drop out here instead of persisting as no-op filters.
+			filters: this.filterEditor?.value ?? [],
+			excludeFolders: folders.length > 0 ? folders : undefined,
+			visibleProperties: picked.length > 0 ? picked : undefined,
+			templatePaths: templates.length > 0 ? templates : undefined,
+			templatePath: templates[0],
+			newNoteOpenMode: this.config.newNoteOpenMode === 'popover' ? 'popover' : undefined,
+		});
+		this.close();
 	}
 }

@@ -55,6 +55,10 @@ export abstract class SectionConfigModal extends Modal {
 	/** Size modifier appended to `.dashboard-modal`. */
 	protected sizeClass(): string { return 'dashboard-modal--compact'; }
 
+	/** Last chance to tweak the modal container before the frame is built
+	 *  (the library config strips its background to sit flush). */
+	protected styleContainer(_containerEl: HTMLElement): void { /* default: no-op */ }
+
 	onOpen(): void {
 		const { contentEl, containerEl } = this;
 		contentEl.empty();
@@ -62,6 +66,7 @@ export abstract class SectionConfigModal extends Modal {
 		containerEl.addClass('modal--dashboard');
 		containerEl.parentElement?.addClass('modal-bg--dashboard');
 		applyModalTheme(containerEl);
+		this.styleContainer(containerEl);
 
 		const container = contentEl.createDiv({ cls: `dashboard-modal ${this.sizeClass()}`.trim() });
 		const header = container.createDiv({ cls: 'dashboard-modal-header' });
