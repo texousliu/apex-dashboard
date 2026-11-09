@@ -4,6 +4,7 @@ import type { DashboardColumn, DataviewConfig, TrackerDataPoint } from './types'
 import type { DqlLink, DqlObject, DqlTask, DqlValue, Page, QueryResult, ResultRow } from './dql/types';
 import { t, getLocale } from './i18n';
 import { attachNoteHover } from './hover-preview';
+import { attachNoteJump, type NoteOpeners } from './note-jump';
 import { toggleTaskInFile } from './alltasks-scan';
 import { buildPages, invalidatePath } from './dql/page-builder';
 import { executeDql } from './dql';
@@ -14,11 +15,9 @@ import { normalizeExcludeFolders, isUnderExcludedFolder } from './exclude-folder
 // render so the inner renderers can route opens + hover previews without
 // threading callbacks through every signature.
 let dvHoverParent: HoverParent | null = null;
-let dvOpener: ((file: TFile, subpath?: string) => void) | null = null;
-/** Line-aware opener (same channel the calendar section uses for task jumps).
- *  A TASK row knows the exact source line, so a click can land on the task
- *  instead of the top of the note. */
-let dvLineOpener: ((file: TFile, line?: number) => void) | null = null;
+/** The shared open vocabulary (src/note-jump.ts) built from the two open
+ *  callbacks the view hands in. */
+let dvOpeners: NoteOpeners | null = null;
 
 const MAX_ROWS = 500; // hard cap to keep the DOM finite on pathological queries.
 const DEFAULT_PAGE_SIZE = 50;
@@ -106,8 +105,14 @@ export function renderDataviewSection(
 	onConfigChange: ((config: DataviewConfig) => void) | null = null,
 ): void {
 	dvHoverParent = hoverParent;
-	dvOpener = onOpenNote;
-	dvLineOpener = onOpenNoteAtLine;
+	dvOpeners = {
+		file: (f) => onOpenNote?.(f),
+		atLine: (f, line) => {
+			if (typeof line === 'number') onOpenNoteAtLine?.(f, line);
+			else onOpenNote?.(f);
+		},
+		inPopover: (f, subpath) => onOpenNote?.(f, subpath),
+	};
 
 	const config = column.dataviewConfig ?? { query: '' };
 	const content = el.createDiv({ cls: 'dashboard-dataview-content' });
@@ -1260,7 +1265,7 @@ function renderCalendar(container: HTMLElement, result: QueryResult, rows: reado
 				// Click opens the first matching note.
 				const first = dayRows[0]!;
 				cell.addEventListener('click', () => {
-					if (first.page?.file && dvOpener) dvOpener(first.page.file);
+					if (first.page?.file && dvOpeners) dvOpeners.file(first.page.file);
 				});
 			}
 		}
@@ -1572,7 +1577,7 @@ function renderDvLink(container: HTMLElement, content: string): void {
 	span.addEventListener('click', (e) => {
 		e.preventDefault();
 		e.stopPropagation();
-		if (file && dvOpener) dvOpener(file, fragment ? `#${fragment}` : undefined);
+		if (file && dvOpeners) dvOpeners.inPopover(file, fragment ? `#${fragment}` : undefined);
 	});
 }
 
@@ -1606,29 +1611,22 @@ export function rowJumpLine(row: ResultRow): number | null {
 }
 
 /** Make the whole row open its source note on click (TABLE rows + LIST items).
- *
+
  *  A TASK row carries the exact source line, so it jumps to the task itself —
  *  the same effect a calendar chip click has (the note opens in the in-dashboard
  *  popover with the line scrolled into view and the caret on it). Rows without a
- *  task have no line to land on and open the note at the top, as before. */
+ *  task have no line to land on and open the note at the top, as before.
+ *  Delegates to the shared attachNoteJump (src/note-jump.ts). */
 function attachRowOpen(el: HTMLElement, row: ResultRow): void {
 	const file = row.page?.file ?? null;
-	if (!file) return;
-	const line = rowJumpLine(row);
-	el.addClass('is-clickable');
-	if (line !== null) el.addClass('is-jumpable');
-	if (dvHoverParent && !Platform.isMobile) {
-		attachNoteHover(appRef, el, file, dvHoverParent);
-	}
-	el.addEventListener('click', (e) => {
-		const target = e.target as HTMLElement;
-		// Don't hijack clicks on inner links/chips — let those resolve on their own.
-		if (target.closest('a, .dashboard-wikilink, .dashboard-dataview-task-checkbox')) return;
-		if (line !== null && dvLineOpener) {
-			dvLineOpener(file, line);
-			return;
-		}
-		if (dvOpener) dvOpener(file);
+	if (!file || !dvOpeners) return;
+	attachNoteJump(el, {
+		app: appRef,
+		openers: dvOpeners,
+		file,
+		line: rowJumpLine(row),
+		hoverParent: dvHoverParent,
+		ignore: '.dashboard-dataview-task-checkbox',
 	});
 }
 

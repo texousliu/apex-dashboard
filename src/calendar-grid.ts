@@ -2,6 +2,7 @@ import { App, setIcon, TFile } from 'obsidian';
 import { t } from './i18n';
 import { monthDayLabel as localizedMonthDayLabel } from './locale-format';
 import { renderTextWithLinks } from './renderer';
+import { attachNoteJump, noteOpenersFrom } from './note-jump';
 import {
 	calendarSpan,
 	dateBucketOf,
@@ -549,8 +550,12 @@ export function renderWeekTimeGrid(
 		for (const task of allDayTasks.slice(0, 3)) {
 			const chip = cell.createDiv({ cls: 'dashboard-calgrid-allday-chip' + (task.checked ? ' is-done' : ''), text: task.text });
 			if (opts.onOpenNote) {
-				chip.addClass('is-jumpable');
-				chip.addEventListener('click', () => opts.onOpenNote?.(task.file, task.line));
+				attachNoteJump(chip, {
+					app: opts.app,
+					openers: noteOpenersFrom(opts.onOpenNote),
+					file: task.file,
+					line: task.line,
+				});
 			}
 		}
 		if (allDayTasks.length > 3) {
@@ -599,10 +604,11 @@ export function renderWeekTimeGrid(
 				check.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); opts.onToggle?.(task, !task.checked); });
 			}
 			if (opts.onOpenNote) {
-				ev.addClass('is-jumpable');
-				ev.addEventListener('click', (e) => {
-					if ((e.target as HTMLElement).closest('input, a')) return;
-					opts.onOpenNote?.(task.file, task.line);
+				attachNoteJump(ev, {
+					app: opts.app,
+					openers: noteOpenersFrom(opts.onOpenNote),
+					file: task.file,
+					line: task.line,
 				});
 			}
 		}
@@ -654,13 +660,14 @@ function renderDayTask(task: VaultTask, iso: string, opts: MonthGridOptions): HT
 	if (opts.compact) {
 		// nothing else; the cell-level click handler opens the day agenda
 	} else if (opts.onOpenNote) {
-		row.addClass('is-jumpable');
-		row.addEventListener('click', (e) => {
-			const target = e.target as HTMLElement;
-			// Leave checkboxes (their own handler) and inline links alone.
-			if (target.tagName === 'INPUT' || target.closest('a')) return;
-			e.stopPropagation();
-			opts.onOpenNote?.(task.file, task.line);
+		// Whole-row jump: stopPropagation so the cell's day-agenda handler
+		// does not also fire.
+		attachNoteJump(row, {
+			app: opts.app,
+			openers: noteOpenersFrom(opts.onOpenNote),
+			file: task.file,
+			line: task.line,
+			stopPropagation: true,
 		});
 	}
 

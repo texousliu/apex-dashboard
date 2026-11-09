@@ -400,6 +400,16 @@ function matchesSimple(el: El, part: string): boolean {
 
 /** Restricted selector engine: `:scope` prefixes, `>` and descendant chains. */
 function elMatches(el: El, selector: string): boolean {
+	// Comma lists: a selector matches when ANY branch does (real-DOM
+	// semantics). Without this, every comma selector the src uses
+	// ('tr, .dashboard-dataview-list-item, …') silently never matched.
+	for (const branch of selector.split(',')) {
+		if (elMatchesSingle(el, branch)) return true;
+	}
+	return false;
+}
+
+function elMatchesSingle(el: El, selector: string): boolean {
 	// Split into (combinator, simple-part) pairs; `>` attaches to the part
 	// that follows it.
 	const raw = selector.trim().split(/\s+/).filter(Boolean);

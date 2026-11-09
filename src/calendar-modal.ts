@@ -18,6 +18,7 @@ import {
 } from './alltasks-scan';
 import { insertTaskForDay, dailyNotePathFor, type TaskInsertTarget } from './daily-notes';
 import { scanFileTasks } from './alltasks-scan';
+import { attachNoteJump, noteOpenersFrom } from './note-jump';
 import { createTaskNote } from './calendar-task-note';
 import { applyModalTheme } from './modal-theme';
 import type { DashboardSettings } from './types';
@@ -537,11 +538,12 @@ export class DayAgendaModal extends Modal {
 		// Whole-row jump (when wired): click anywhere except the checkbox, the
 		// source chip, or an inline link to open the note at the task's line.
 		if (this.cb.onOpenNote) {
-			row.addClass('is-jumpable');
-			row.addEventListener('click', (e) => {
-				const target = e.target as HTMLElement;
-				if (target.tagName === 'INPUT' || target.closest('a') || target.closest('.dashboard-alltasks-chip')) return;
-				this.cb.onOpenNote?.(task.file, task.line);
+			attachNoteJump(row, {
+				app: this.app,
+				openers: noteOpenersFrom(this.cb.onOpenNote),
+				file: task.file,
+				line: task.line,
+				ignore: '.dashboard-alltasks-chip',
 			});
 		}
 		return row;

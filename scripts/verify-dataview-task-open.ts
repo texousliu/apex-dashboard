@@ -4,15 +4,18 @@
  *
  * The row used to call the plain note opener, which drops the reader at the top
  * of the note: on a long daily note the task itself was nowhere in sight. TASK
- * rows know their source line, so they now go through the same line-aware
- * channel the calendar section uses.
+ * rows know their source line. The gesture now lives in ONE shared helper
+ * (src/note-jump.ts attachNoteJump) used by the dataview section, the calendar
+ * grids and the day agenda.
  *
  * 1. `rowJumpLine` — the line a click should land on. Only TASK rows have one;
  *    a synthetic row (-1) or a non-task query opens the note at the top.
- * 2. `attachRowOpen` — jumpable rows are marked, the line opener wins over the
- *    generic opener, and checkbox / inner-link clicks are still left alone.
- * 3. Wiring — the section receives the line opener and the renderer passes the
- *    calendar's `onOpenNoteAtLine` through.
+ * 2. `attachNoteJump` (behavioral) — cursor classes, the line-aware opener
+ *    winning over the generic one, and checkbox / inner-link / chip clicks
+ *    still left alone.
+ * 3. Wiring — every surface goes through the shared helper, and the section
+ *    receives the line opener and passes the calendar's `onOpenNoteAtLine`
+ *    through.
  * 4. The view maps that callback to `openNote(file, undefined, line)`, and both
  *    the popover and the tab fallback reveal the line.
  *
@@ -20,13 +23,18 @@
  */
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
+import type { TFile } from 'obsidian';
 import { rowJumpLine } from '../src/dataview-section';
+import { attachNoteJump, noteOpenersFrom, type NoteOpeners } from '../src/note-jump';
 import type { ResultRow } from '../src/dql/types';
+import { El } from './mini-dom';
 
 const sectionSrc = readFileSync('src/dataview-section.ts', 'utf8');
 const rendererSrc = readFileSync('src/renderer.ts', 'utf8');
 const viewSrc = readFileSync('src/view.ts', 'utf8');
 const popoverSrc = readFileSync('src/note-popover-modal.ts', 'utf8');
+const gridSrc = readFileSync('src/calendar-grid.ts', 'utf8');
+const agendaSrc = readFileSync('src/calendar-modal.ts', 'utf8');
 const css = readFileSync('styles.css', 'utf8');
 
 /** A row carrying only what the click path looks at. */
@@ -42,24 +50,126 @@ assert.equal(rowJumpLine(rowWith(0)), 0, '1: line 0 is a real target, not a fals
 assert.equal(rowJumpLine(rowWith(-1)), null, '1: a synthetic task has no line to land on');
 assert.equal(rowJumpLine(rowWith(null)), null, '1: a non-TASK row opens the note at the top');
 
-/* ----------------------------- 2. attachRowOpen ----------------------------- */
+/* --------------------------- 2. attachNoteJump --------------------------- */
 
+const mkFile = { path: '01-日记/2026-11-06.md', basename: '2026-11-06', extension: 'md' } as unknown as TFile;
+
+/** tsc sees the real HTMLElement type; the bundled mini-DOM provides El. */
+function mkRow(): HTMLElement {
+	return new El('div') as unknown as HTMLElement;
+}
+
+/** Dispatch a click AT a child (bubbling to the row) through the mini-DOM. */
+function clickAt(el: unknown): void {
+	(el as El).dispatchEvent({ type: 'click', target: el as El });
+}
+
+function recordedOpeners(): { calls: string[]; openers: NoteOpeners } {
+	const calls: string[] = [];
+	return {
+		calls,
+		openers: {
+			file: (f) => calls.push(`file:${f.path}`),
+			atLine: (f, line) => calls.push(`atLine:${f.path}:${line}`),
+			inPopover: (f, subpath) => calls.push(`inPopover:${f.path}:${subpath ?? ''}`),
+		},
+	};
+}
+
+// a) a row with a line: both cursor classes, the line-aware opener wins.
+{
+	const row = mkRow();
+	const rec = recordedOpeners();
+	attachNoteJump(row, { app: null as never, openers: rec.openers, file: mkFile, line: 12 });
+	assert.ok(row.hasClass('is-clickable') && row.hasClass('is-jumpable'), '2: a line target marks the row jumpable');
+	row.click();
+	assert.deepEqual(rec.calls, ['atLine:01-日记/2026-11-06.md:12'], '2: the click goes through the line-aware opener');
+}
+
+// b) no line: plain clickable, opens the note at the top.
+{
+	const row = mkRow();
+	const rec = recordedOpeners();
+	attachNoteJump(row, { app: null as never, openers: rec.openers, file: mkFile, line: null });
+	assert.ok(row.hasClass('is-clickable') && !row.hasClass('is-jumpable'), '2: no line → plain clickable');
+	row.click();
+	assert.deepEqual(rec.calls, ['file:01-日记/2026-11-06.md'], '2: opens the note at the top');
+}
+
+// c) a negative line is treated as "no line".
+{
+	const row = mkRow();
+	const rec = recordedOpeners();
+	attachNoteJump(row, { app: null as never, openers: rec.openers, file: mkFile, line: -1 });
+	row.click();
+	assert.deepEqual(rec.calls, ['file:01-日记/2026-11-06.md'], '2: a synthetic -1 line opens at the top');
+}
+
+// d) inner links and checkboxes keep their own handlers.
+{
+	const row = mkRow();
+	const rec = recordedOpeners();
+	attachNoteJump(row, { app: null as never, openers: rec.openers, file: mkFile, line: 3 });
+	const link = row.createEl('a', { text: 'link' });
+	const check = row.createEl('input', { attr: { type: 'checkbox' } });
+	clickAt(link);
+	clickAt(check);
+	assert.deepEqual(rec.calls, [], '2: inner links and the toggle checkbox are left alone');
+	row.click();
+	assert.deepEqual(rec.calls, ['atLine:01-日记/2026-11-06.md:3'], '2: a direct row click still jumps');
+}
+
+// e) caller-declared ignore selectors (e.g. the agenda's source chip).
+{
+	const row = mkRow();
+	const rec = recordedOpeners();
+	attachNoteJump(row, { app: null as never, openers: rec.openers, file: mkFile, line: 3, ignore: '.dashboard-alltasks-chip' });
+	const chip = row.createDiv({ cls: 'dashboard-alltasks-chip' });
+	clickAt(chip);
+	assert.deepEqual(rec.calls, [], '2: extra ignore selectors are honored');
+}
+
+// f) noteOpenersFrom adapts the single-callback wiring the calendar uses.
+{
+	const calls: string[] = [];
+	const openers = noteOpenersFrom((f, line) => calls.push(`${f.path}:${line ?? 'top'}`));
+	openers.atLine(mkFile, 7);
+	openers.file(mkFile);
+	openers.atLine(mkFile, null);
+	openers.inPopover(mkFile);
+	assert.deepEqual(calls, [
+		'01-日记/2026-11-06.md:7',
+		'01-日记/2026-11-06.md:top',
+		'01-日记/2026-11-06.md:top',
+		'01-日记/2026-11-06.md:top',
+	], '2: noteOpenersFrom routes everything through the one callback');
+}
+
+// g) stopPropagation keeps ancestor handlers (a calendar day cell) out.
+{
+	const cell = new El('div');
+	const row = cell.createDiv({ cls: 'dashboard-calendar-event' }) as unknown as HTMLElement;
+	const rec = recordedOpeners();
+	let cellOpened = 0;
+	cell.addEventListener('click', () => { cellOpened++; });
+	attachNoteJump(row, { app: null as never, openers: rec.openers, file: mkFile, line: 5, stopPropagation: true });
+	(row as unknown as El).click();
+	assert.deepEqual(rec.calls, ['atLine:01-日记/2026-11-06.md:5'], '2: the jump fires');
+	assert.equal(cellOpened, 0, '2: stopPropagation holds the ancestor handler back');
+}
+
+// The dataview section delegates to the shared helper (source wiring).
 {
 	const openSrc = sectionSrc.slice(
 		sectionSrc.indexOf('function attachRowOpen('),
 		sectionSrc.indexOf('// Re-export so the view can bust the page cache'),
 	);
 	assert.ok(openSrc.length > 0, '2: attachRowOpen exists');
-	assert.ok(openSrc.includes('const line = rowJumpLine(row);'),
+	assert.ok(openSrc.includes('attachNoteJump(el, {'), '2: it delegates to the shared attachNoteJump');
+	assert.ok(openSrc.includes('line: rowJumpLine(row),'),
 		'2: it asks rowJumpLine instead of re-deriving the line');
-	assert.ok(openSrc.includes('if (line !== null) el.addClass(\'is-jumpable\');'),
-		'2: only rows with a line are marked jumpable');
-	assert.ok(openSrc.includes('if (line !== null && dvLineOpener) {'),
-		'2: a jumpable row prefers the line-aware opener');
-	assert.ok(openSrc.indexOf('dvLineOpener(file, line)') < openSrc.indexOf('if (dvOpener) dvOpener(file);'),
-		'2: the generic opener is only the fallback');
-	assert.ok(openSrc.includes("target.closest('a, .dashboard-wikilink, .dashboard-dataview-task-checkbox')"),
-		'2: inner links and the toggle checkbox keep their own handlers');
+	assert.ok(openSrc.includes("ignore: '.dashboard-dataview-task-checkbox',"),
+		'2: the toggle checkbox keeps its own handler');
 }
 
 /* -------------------------------- 3. wiring -------------------------------- */
@@ -77,12 +187,24 @@ assert.equal(rowJumpLine(rowWith(null)), null, '1: a non-TASK row opens the note
 		'3: wired BEFORE the TASK branch returns, or task rows stay dead');
 }
 
-assert.ok(sectionSrc.includes('let dvLineOpener: ((file: TFile, line?: number) => void) | null = null;'),
-	'3: the section holds a line-aware opener');
+assert.ok(sectionSrc.includes('let dvOpeners: NoteOpeners | null = null;'),
+	'3: the section holds the shared openers vocabulary');
 assert.ok(sectionSrc.includes('onOpenNoteAtLine: ((file: TFile, line?: number) => void) | null,'),
-	'3: renderDataviewSection takes it as a parameter');
-assert.ok(sectionSrc.includes('dvLineOpener = onOpenNoteAtLine;'),
-	'3: and stores it for the inner renderers');
+	'3: renderDataviewSection takes the line opener as a parameter');
+assert.ok(sectionSrc.includes('dvOpeners = {'),
+	'3: and builds the openers from both callbacks for the inner renderers');
+
+// The calendar surfaces jump through the SAME helper (the unification this
+// file guards): all-day chips, week events and month rows in the grid, and
+// the day-agenda rows.
+assert.ok((gridSrc.match(/attachNoteJump\(/g) ?? []).length >= 3,
+	'3: the calendar grid jumps through the shared helper (chips, week events, month rows)');
+assert.ok(gridSrc.includes('stopPropagation: true'),
+	'3: month rows stopPropagation so the day cell does not also open the agenda');
+assert.ok(agendaSrc.includes('attachNoteJump(row, {'),
+	'3: the day agenda jumps through the shared helper');
+assert.ok(agendaSrc.includes("ignore: '.dashboard-alltasks-chip',"),
+	'3: the agenda keeps its source chip clickable on its own');
 
 {
 	const callIdx = rendererSrc.indexOf('renderDataviewSection(el, column, app, activeHoverParent,');
