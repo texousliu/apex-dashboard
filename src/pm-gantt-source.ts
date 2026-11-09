@@ -1,3 +1,4 @@
+import { fmString } from './frontmatter-value';
 import type { PipelineTask } from './pipeline-model';
 import { validStamp, assertScheduleFresh, type SchedulePatch } from './pm-schedule';
 import { t } from './i18n';
@@ -20,13 +21,14 @@ export function parseGanttBlocks(content: string): GanttBlock[] {
 			if (typeof task.id !== 'string' || !/^[A-Za-z0-9_-]+$/.test(task.id) || taskIds.has(task.id) || typeof task.text !== 'string' || !task.text.trim()) return invalid();
 			taskIds.add(task.id);
 			for (const key of ['start', 'end', 'due', 'scheduled']) if (task[key] !== undefined && (typeof task[key] !== 'string' || (task[key] && !validStamp(task[key])))) return invalid();
-			const start = String(task.start || task.scheduled || '');
-			if (start && task.end && start > `${task.end}${String(task.end).length === 10 ? ' 23:59' : ''}`) return invalid();
+			const start = fmString(task.start || task.scheduled);
+			const endText = fmString(task.end);
+			if (start && endText && start > `${endText}${endText.length === 10 ? ' 23:59' : ''}`) return invalid();
 			return { line, id: task.id, text: task.text, checked: task.checked === true, kind: task.kind === 'milestone' ? 'milestone' : 'task',
 				...(typeof task.group === 'string' ? { group: task.group } : {}),
-				...(task.start ? { start: String(task.start) } : {}), ...(task.end ? { end: String(task.end) } : {}),
-				...(task.scheduled ? { scheduled: String(task.scheduled) } : {}),
-				...(task.due ? { deadline: String(task.due), due: String(task.due) } : {}) };
+				...(task.start ? { start: fmString(task.start) } : {}), ...(task.end ? { end: fmString(task.end) } : {}),
+				...(task.scheduled ? { scheduled: fmString(task.scheduled) } : {}),
+				...(task.due ? { deadline: fmString(task.due), due: fmString(task.due) } : {}) };
 		});
 		return { id: raw.id, title: typeof raw.title === 'string' ? raw.title : raw.id, tasks, from: match.index, to: match.index + match[0].length, raw };
 	});

@@ -1,3 +1,4 @@
+import { fmString } from './frontmatter-value';
 import type { App, TFile } from 'obsidian';
 import type { PipelineAction, PipelineConfig, PipelineSkill, PipelineStage } from './types';
 import { isUnderExcludedFolder, normalizeExcludeFolders } from './exclude-folders';
@@ -23,7 +24,7 @@ export function normalizeFolderPath(path: string): string {
 /** Stage identity is the status field's value: trimmed, case-insensitive
  *  (a hand-typed `Draft` still lands in the `draft` column). */
 export function resolvePipelineStage(stages: PipelineStage[], rawValue: unknown): PipelineStage | null {
-	const value = String(rawValue ?? '').trim().toLowerCase();
+	const value = fmString(rawValue).trim().toLowerCase();
 	if (!value) return null;
 	return stages.find(stage => stage.value.trim().toLowerCase() === value) ?? null;
 }
@@ -76,7 +77,7 @@ export function sortStageItems(items: PipelineItem[], sortBy: 'ctime' | 'platfor
 	} else if (sortBy === 'ctime') {
 		items.sort((a, b) => b.file.stat.ctime - a.file.stat.ctime);
 	} else if (sortBy === 'platform') {
-		const platformOf = (item: PipelineItem): string => String(item.frontmatter['platform'] ?? '').trim();
+		const platformOf = (item: PipelineItem): string => fmString(item.frontmatter['platform']).trim();
 		items.sort((a, b) => {
 			const pa = platformOf(a);
 			const pb = platformOf(b);
@@ -231,7 +232,7 @@ export function itemTags(frontmatter: Record<string, unknown>): string[] {
 export function itemPropertyChip(frontmatter: Record<string, unknown>): string | null {
 	const raw = frontmatter['platform'];
 	if (raw == null) return null;
-	const value = String(raw).trim();
+	const value = fmString(raw).trim();
 	return value ? value.slice(0, 16) : null;
 }
 
@@ -368,7 +369,7 @@ export function normalizePipelineActions(actions: readonly PipelineAction[] | un
 export function actionCurrentValue(frontmatter: Record<string, unknown>, field: string): string {
 	const raw = frontmatter[field];
 	if (raw == null) return '';
-	return (Array.isArray(raw) ? raw.map(v => String(v).trim()).filter(v => v.length > 0).join(', ') : String(raw).trim());
+	return (Array.isArray(raw) ? raw.map(v => fmString(v).trim()).filter(v => v.length > 0).join(', ') : fmString(raw).trim());
 }
 
 /** Seed config for a pipeline section opened for the first time. Labels are
@@ -478,7 +479,7 @@ export interface NoteDue {
 /** Parse a note-level due from frontmatter (`due: YYYY-MM-DD( HH:MM)` +
  *  `remind: true`), the same value shape the [due::] field uses. */
 export function parseNoteDue(frontmatter: Record<string, unknown>): NoteDue | null {
-	const raw = String(frontmatter['due'] ?? '').trim();
+	const raw = fmString(frontmatter['due']).trim();
 	if (!/^\d{4}-\d{2}-\d{2}(\s+\d{2}:\d{2})?$/.test(raw)) return null;
 	const [date, time] = raw.split(/\s+/);
 	return {

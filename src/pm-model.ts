@@ -1,3 +1,4 @@
+import { fmString } from './frontmatter-value';
 import type { App, CachedMetadata, TFile } from 'obsidian';
 import { parse as parseYaml } from 'yaml';
 import type { PmConfig, PmStage } from './types';
@@ -54,7 +55,7 @@ export function pmField(frontmatter: Record<string, unknown>, key: keyof typeof 
 	for (const alias of PM_FIELD_ALIASES[key]!) {
 		const raw = frontmatter[alias];
 		if (raw === undefined || raw === null) continue;
-		const value = String(raw).trim();
+		const value = fmString(raw).trim();
 		if (value) return value;
 	}
 	return '';
@@ -218,7 +219,7 @@ export function sortPmProjects(projects: readonly PmProject[], mode: PmSortMode 
 /** Group key for the grouped view: the frontmatter `group` field, '' for the
  *  ungrouped bucket. */
 export function pmGroupName(frontmatter: Record<string, unknown>): string {
-	return String(frontmatter['group'] ?? frontmatter['分组'] ?? '').trim();
+	return fmString(frontmatter['group'] ?? frontmatter['分组']).trim();
 }
 
 /** Apply the manual drag order on top of the stage→keyDate sort: known
@@ -280,8 +281,8 @@ export function pmCustomFields(frontmatter: Record<string, unknown>): Array<{ ke
 	const raw = frontmatter['custom'];
 	if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return [];
 	return Object.entries(raw as Record<string, unknown>)
-		.filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== '')
-		.map(([key, value]) => ({ key, value: String(value).trim() }));
+		.filter(([, value]) => value !== undefined && value !== null && fmString(value).trim() !== '')
+		.map(([key, value]) => ({ key, value: fmString(value).trim() }));
 }
 
 /** The per-project work-note folder: `<root>/<project name>/`. The main
