@@ -154,8 +154,23 @@ assert.deepEqual(
 	'root-relative sub-folder keys, deeper levels collapse to the first below the root',
 );
 const deepGroups = groupMaterialItems(deepScoped, 'folder', '(not set)');
-assert.deepEqual(deepGroups.map(g => g.key), ['素材', '素材/图片', '素材/视频'], 'keys stay root-qualified');
-assert.deepEqual(deepGroups.map(g => g.label), ['素材', '图片', '视频'], 'labels show the sub-folder name only');
+// Bucket ORDER follows the host locale's collation (`localeCompare`), so the
+// assertions below pin membership and the root-first rule instead of one
+// locale's exact ordering (which made this test pass only under some ICDs).
+assert.equal(deepGroups[0]!.key, '素材', 'root bucket sorts first');
+assert.deepEqual(
+	deepGroups.map(g => g.key).sort(),
+	['素材', '素材/图片', '素材/视频'].sort(),
+	'keys stay root-qualified',
+);
+assert.deepEqual(
+	deepGroups.map(g => g.label).sort(),
+	['素材', '图片', '视频'].sort(),
+	'labels show the sub-folder name only',
+);
+for (const g of deepGroups) {
+	assert.equal(g.label, g.key.split('/').pop(), `label mirrors the key's last segment: ${g.key}`);
+}
 // Two roots with same-named sub-folders stay distinct (why keys are qualified).
 const twinRoots = buildMaterialItems(
 	[rec('a/2024/x.png'), rec('b/2024/y.png')], () => [], { includeFolders: ['a', 'b'], excludeFolders: [] },

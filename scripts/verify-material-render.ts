@@ -786,23 +786,37 @@ async function main(): Promise<void> {
 	deepGroupSelect.value = 'folder';
 	deepGroupSelect.dispatchEvent({ type: 'change' });
 	const deepHeaders = findByClass(deepHost, 'dashboard-media-group-header');
+	// Group order follows the host locale's collation, so assert membership
+	// (plus the root-first rule) rather than one locale's exact ordering.
+	assert.equal(deepHeaders[0]!.dataset.groupKey, '素材', 'root group renders first');
 	assert.deepEqual(
-		deepHeaders.map(h => h.dataset.groupKey),
-		['素材', '素材/图片', '素材/视频'],
+		deepHeaders.map(h => h.dataset.groupKey).sort(),
+		['素材', '素材/图片', '素材/视频'].sort(),
 		'folder keys stay root-qualified so two roots cannot collide',
 	);
 	assert.deepEqual(
-		deepHeaders.map(h => findByClass(h, 'dashboard-media-group-name')[0]!.textContent),
-		['素材', '图片', '视频'],
+		deepHeaders.map(h => findByClass(h, 'dashboard-media-group-name')[0]!.textContent).sort(),
+		['素材', '图片', '视频'].sort(),
 		'headers show the sub-folder name, not the whole key',
 	);
 	assert.deepEqual(
-		findByClass(deepHost, 'dashboard-section-rail-item').map(d => d.dataset.name),
-		['素材', '图片', '视频'],
+		findByClass(deepHost, 'dashboard-section-rail-item').map(d => d.dataset.name).sort(),
+		['素材', '图片', '视频'].sort(),
 		'the left nav rail lists the sub-folder labels',
 	);
-	assert.equal(findByClass(deepHeaders[1]!, 'dashboard-media-group-count')[0]!.textContent, '2', 'deeper levels fold into the first sub-folder below the root');
-	assert.equal(findByClass(deepHeaders[0]!, 'dashboard-media-group-count')[0]!.textContent, '1', 'files directly in the root bucket under the root itself');
+	// Look groups up BY KEY: the rendered order follows the host locale's
+	// collation, so positional indexing (deepHeaders[1]) is not stable.
+	const deepHeaderByKey = new Map(deepHeaders.map(h => [h.dataset.groupKey!, h]));
+	assert.equal(
+		findByClass(deepHeaderByKey.get('素材/图片')!, 'dashboard-media-group-count')[0]!.textContent,
+		'2',
+		'deeper levels fold into the first sub-folder below the root',
+	);
+	assert.equal(
+		findByClass(deepHeaderByKey.get('素材')!, 'dashboard-media-group-count')[0]!.textContent,
+		'1',
+		'files directly in the root bucket under the root itself',
+	);
 	deepController.destroy();
 
 	// --- 11. OS file drop: drag in from outside → copy into the vault ----------
@@ -1146,8 +1160,8 @@ async function main(): Promise<void> {
 	// 13b. grouped view: every folder appears; big groups render progressively.
 	bigSetGroup('folder');
 	assert.deepEqual(
-		findByClass(bigHost, 'dashboard-media-group-header').map(h => h.dataset.groupKey),
-		['素材/图片', '素材/视频'],
+		findByClass(bigHost, 'dashboard-media-group-header').map(h => h.dataset.groupKey).sort(),
+		['素材/图片', '素材/视频'].sort(),
 		'every folder is a group — none dropped past a 500 cap',
 	);
 	assert.equal(findByClass(bigHeaderOf('素材/图片'), 'dashboard-media-group-count')[0]!.textContent, '560', 'the big group keeps its true count');

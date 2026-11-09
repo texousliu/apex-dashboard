@@ -4,17 +4,25 @@
  *
  * 1. Parser round-trip — 'small'/'large' persist to the dashboard file,
  *    'medium' (default) writes nothing, garbage parses to undefined.
- * 2. renderLibrarySection toolbar — the selector renders three buttons, is
- *    visible in grid/gallery and hidden in list/table/kanban, clicking a size
- *    reports it through onConfigChange and re-renders the grid with the
- *    matching size class. 'medium' stays un-suffixed (legacy layout intact).
+ * 2. renderLibrarySection toolbar — the size control is a single collapsed
+ *    dropdown (the old always-visible S/M/L row was replaced): the pill shows
+ *    the current letter, the menu lists all three with a check on the active
+ *    one. It is visible in grid/gallery and hidden in list/table/kanban;
+ *    picking a size reports it through onConfigChange and re-renders the grid
+ *    with the matching size class. 'medium' stays un-suffixed (legacy layout).
  *
  * Run: `npm run test:library-card-size`
  */
 import { strict as assert } from 'node:assert';
+import { Menu } from 'obsidian';
 import { parse, serialize } from '../src/parser';
 import { renderLibrarySection } from '../src/library-section';
 import { El, findByClass } from './mini-dom';
+
+/** Bridge to the stub's `Menu.last` (tsc only sees the real Obsidian typings,
+ *  which have no static `last`). */
+interface StubMenu { items: Array<{ title: string; checked: boolean; click(): void }> }
+const lastMenu = (): StubMenu => (Menu as unknown as { last: StubMenu | null }).last!;
 
 (globalThis as unknown as Record<string, unknown>).activeDocument = {
 	querySelector: () => null,
@@ -81,45 +89,57 @@ renderLibrarySection(
 );
 
 const sizeToggle = findByClass(el, 'dashboard-library-size-toggle')[0]!;
-const sizeBtns = (): El[] => findByClass(sizeToggle, 'dashboard-library-view-btn');
-const activeSize = (): string | undefined => sizeBtns().find(b => b.hasClass('active'))?.textContent;
+const sizeBtn = (): El => findByClass(sizeToggle, 'dashboard-toolbar-dropdown')[0]
+	?? assert.fail('size dropdown rendered');
+const sizeText = (): string | undefined =>
+	findByClass(sizeBtn(), 'dashboard-toolbar-dropdown-text')[0]?.textContent;
+/** The menu order is small / medium / large (index 0/1/2). */
+const openSizeMenu = (): StubMenu => { sizeBtn().click(); return lastMenu(); };
+const pickSize = (index: number): void => { openSizeMenu().items[index]!.click(); };
 const gridHost = (): El => findByClass(el, 'dashboard-library-grid')[0]
 	?? findByClass(el, 'dashboard-library-gallery')[0]
 	?? assert.fail('card grid rendered');
 
-// Three buttons, S/M/L, medium active by default, toggle visible in grid.
-assert.deepEqual(sizeBtns().map(b => b.textContent), ['S', 'M', 'L'], 'three size buttons S/M/L');
-assert.equal(activeSize(), 'M', 'medium active by default');
+// Collapsed pill shows M; the menu lists all three with medium checked.
+assert.equal(sizeText(), 'M', 'collapsed pill shows the current size (M)');
 assert.ok(!sizeToggle.hasClass('is-hidden'), 'visible in grid view');
 
-// aria-labels are localized.
-const ariaLabels = sizeBtns().map(b => b.getAttribute('aria-label'));
-assert.ok(ariaLabels.every(l => l === '小卡片' || l === '中卡片' || l === '大卡片' || /cards/i.test(l ?? '')),
-	`aria labels localized: ${ariaLabels.join(',')}`);
+const sizeMenu = openSizeMenu();
+assert.equal(sizeMenu.items.length, 3, 'menu lists three sizes');
+assert.equal(sizeMenu.items.filter(i => i.checked).length, 1, 'exactly one size checked');
+assert.ok(sizeMenu.items[1]!.checked, 'medium checked by default');
+
+// aria-label is localized on the collapsed button.
+assert.ok(/卡片|cards/i.test(sizeBtn().getAttribute('aria-label') ?? ''),
+	`aria label localized: ${sizeBtn().getAttribute('aria-label')}`);
 
 // Default grid carries no size class (legacy layout).
 assert.ok(!gridHost().hasClass('dashboard-library-cards--small')
 	&& !gridHost().hasClass('dashboard-library-cards--large'), 'medium stays un-suffixed');
 
-// Click S: config reported, grid re-rendered with the class.
-sizeBtns().find(b => b.textContent === 'S')!.click();
+// Pick S: config reported, grid re-rendered with the class.
+pickSize(0);
 assert.equal((saved as { cardSize?: string } | undefined)?.cardSize, 'small', 'onConfigChange carries cardSize');
-assert.equal(activeSize(), 'S', 'S becomes active');
+assert.equal(sizeText(), 'S', 'pill shows S after picking it');
 assert.ok(gridHost().hasClass('dashboard-library-cards--small'), 'grid re-rendered with small class');
 
-// Click L via the fresh buttons.
-findByClass(sizeToggle, 'dashboard-library-view-btn').find(b => b.textContent === 'L')!.click();
+// Pick L through the freshly built menu.
+pickSize(2);
 assert.ok(gridHost().hasClass('dashboard-library-cards--large'), 'grid re-rendered with large class');
 
-// Switch to list: selector hides; back to gallery: visible and gallery-sized.
-const viewToggle = findByClass(el, 'dashboard-library-view-toggle')[0]!;
-const viewBtn = (mode: string): El => findByClass(viewToggle, 'dashboard-library-view-btn')
-	.find(b => b.getAttribute('data-view-mode') === mode)!;
-viewBtn('list').click();
+// Switch to list: control hides; back to gallery: visible and gallery-sized.
+const viewToggle = findByClass(el, 'dashboard-library-view-toggle')
+	.find(v => !v.hasClass('dashboard-library-size-toggle'))!;
+/** viewModes order: grid(0) / gallery(1) / list(2) / table(3) / kanban(4). */
+const pickView = (index: number): void => {
+	findByClass(viewToggle, 'dashboard-toolbar-dropdown')[0]!.click();
+	lastMenu().items[index]!.click();
+};
+pickView(2);
 assert.ok(sizeToggle.hasClass('is-hidden'), 'hidden in list view');
-viewBtn('table').click();
+pickView(3);
 assert.ok(sizeToggle.hasClass('is-hidden'), 'hidden in table view');
-viewBtn('gallery').click();
+pickView(1);
 assert.ok(!sizeToggle.hasClass('is-hidden'), 'visible in gallery view');
 assert.ok(gridHost().hasClass('dashboard-library-gallery'), 'gallery view renders gallery grid');
 assert.ok(gridHost().hasClass('dashboard-library-cards--large'), 'card size carries over to gallery');
@@ -134,8 +154,8 @@ renderLibrarySection(
 );
 const gallery2 = findByClass(el2, 'dashboard-library-gallery')[0]!;
 assert.ok(gallery2.hasClass('dashboard-library-cards--small'), 'persisted small applied on open');
-assert.equal(findByClass(findByClass(el2, 'dashboard-library-size-toggle')[0]!, 'dashboard-library-view-btn')
-	.find(b => b.hasClass('active'))?.textContent, 'S', 'S active on open');
+assert.equal(findByClass(findByClass(el2, 'dashboard-library-size-toggle')[0]!, 'dashboard-toolbar-dropdown-text')[0]?.textContent,
+	'S', 'pill shows S on open');
 
 console.log('card size toolbar + rendering: PASS');
 console.log('library card size: ALL PASS');
