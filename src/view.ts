@@ -758,27 +758,31 @@ export class DashboardView extends ItemView implements HoverParent {
 	private attachBoardEventDelegation(board: HTMLElement): void {
 		// Library config event delegation
 		board.addEventListener('dashboard-library-config', ((e: CustomEvent) => {
-			const { columnName } = e.detail as { columnName: string };
+			// The gear ships the canonical type from the section registry, so a
+			// legacy column (e.g. sectionType: notes) routes like its modern
+			// equivalent instead of falling into the library fallback.
+			const { columnName, sectionType } = e.detail as { columnName: string; sectionType?: string };
 			const col = this.data?.columns.find(c => c.name === columnName);
-			if (col?.sectionType === 'folder') {
+			const type = sectionType ?? col?.sectionType;
+			if (type === 'folder') {
 				this.openFolderConfigModal(columnName);
-			} else if (col?.sectionType === 'weread') {
+			} else if (type === 'weread') {
 				this.openWereadConfigModal(columnName);
-			} else if (col?.sectionType === 'dataview') {
+			} else if (type === 'dataview') {
 				this.openDataviewConfigModal(columnName);
-			} else if (col?.sectionType === 'web') {
+			} else if (type === 'web') {
 				this.openWebConfigModal(columnName);
-			} else if (col?.sectionType === 'rss') {
+			} else if (type === 'rss') {
 				this.openRssConfigModal(columnName);
-			} else if (col?.sectionType === 'pipeline') {
+			} else if (type === 'pipeline') {
 				this.openPipelineConfigModal(columnName);
-			} else if (col?.sectionType === 'skills') {
+			} else if (type === 'skills') {
 				this.openSkillsConfigModal(columnName);
-			} else if (col?.sectionType === 'pm') {
+			} else if (type === 'pm') {
 				this.openPmConfigModal(columnName);
-			} else if (col?.sectionType === 'images' || col?.sectionType === 'videos') {
+			} else if (type === 'images' || type === 'videos') {
 				this.openMediaConfigModal(columnName);
-			} else if (col?.sectionType === 'projects') {
+			} else if (type === 'projects') {
 				this.openNotesSectionConfigModal(columnName);
 			} else {
 				this.openLibraryConfigModal(columnName);

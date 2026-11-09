@@ -1,6 +1,7 @@
 import { Modal, setIcon } from 'obsidian';
 import { t } from './i18n';
 import { applyModalTheme } from './modal-theme';
+import { sectionPickerOptions } from './section';
 
 export interface SectionTypeOption {
 	value: string;
@@ -17,23 +18,7 @@ export interface SectionTypeOption {
  * agent boards + calendar/RSS, then media & web embeds, and the reading/task
  * integrations last (Rae's layout).
  */
-export const SECTION_TYPE_OPTIONS: SectionTypeOption[] = [
-	{ value: 'sticky', icon: 'layers', labelKey: 'renderer.typeSticky' },
-	{ value: 'folder', icon: 'folder', labelKey: 'renderer.typeFolder' },
-	{ value: 'library', icon: 'database', labelKey: 'renderer.typeLibrary' },
-	{ value: 'projects', icon: 'layout-grid', labelKey: 'renderer.typeNotes' },
-	{ value: 'dataview', icon: 'table-2', labelKey: 'renderer.typeDataview' },
-	{ value: 'pm', icon: 'briefcase', labelKey: 'renderer.typePm' },
-	{ value: 'pipeline', icon: 'workflow', labelKey: 'renderer.typePipeline' },
-	{ value: 'skills', icon: 'wand-sparkles', labelKey: 'renderer.typeSkills' },
-	{ value: 'calendar', icon: 'calendar-days', labelKey: 'renderer.typeCalendar' },
-	{ value: 'rss', icon: 'rss', labelKey: 'renderer.typeRss' },
-	{ value: 'images', icon: 'image', labelKey: 'renderer.typeImages' },
-	{ value: 'videos', icon: 'video', labelKey: 'renderer.typeVideos' },
-	{ value: 'web', icon: 'globe', labelKey: 'renderer.typeWeb' },
-	{ value: 'weread', icon: 'book-open', labelKey: 'renderer.typeWeread' },
-	{ value: 'ticktick', icon: 'check-circle', labelKey: 'renderer.typeTickTick' },
-];
+export const SECTION_TYPE_OPTIONS: SectionTypeOption[] = sectionPickerOptions();
 
 export class AddSectionModal extends Modal {
 	private selectedType: string;

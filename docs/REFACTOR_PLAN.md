@@ -258,11 +258,18 @@ renderSectionState(el, { kind: 'loading' | 'empty' | 'error'; text: string; hint
 
 **验收**：`verify-dataview-task-toggle`、`verify-task-toggle-quiet`、`verify-calendar-*`、`verify-dataview-task-open`、`verify-dataview-edit-refresh` 全绿；新增契约测试 `verify-task-toggle-contract`（四适配器共用一套断言）。
 
-### Phase 2　Section 注册表（2–3 天）
+### Phase 2　Section 注册表（2–3 天）——已完成主体
 
-逐个把 15 个类型迁到 `registerSection(def)`，每迁一个跑该类型的 verify。迁移顺序按「分支复杂度低 → 高」：web → rss → calendar → dataview → ticktick → weread → media → skills → pipeline → pm → library → 默认 sticky。
+> **进度**：
+> - ✅ `src/section/registry.ts`：`SectionDefinition`（types/aliases/picker/fixedHeight/holdsCards/headerActions/render）+ `SectionContext`（el/header/actions/column/app/data/settings/callbacks/hoverParent/openNoteInPopover/buttons/setReload/renderCards）+ `createSectionButtons`（config/refresh/remove/addCard 统一图标、类名、事件路由）。
+> - ✅ 15 个类型按领域拆到 `src/section/defs/{cards,media,data,tasks,boards}.ts`，`src/section/index.ts` 副作用注册。
+> - ✅ `renderSection` 的 if 链（原 2447–2997）删掉，改为 `def.headerActions?.(ctx); def.render(ctx);`；`getSectionType` 的 15 行名称表改为 `hasSectionType` + `canonicalSectionType`（memo/todo→sticky、notes→projects 走 alias）。
+> - ✅ `SECTION_TYPE_OPTIONS` 由 `sectionPickerOptions()` 生成（顺序由 entry 的 `order` 决定，不再依赖导入顺序）。
+> - ✅ 配置齿轮的 `dashboard-library-config` 事件现在带上规范 `sectionType`，`view.ts` 的路由不再自己猜类型。
+> - ✅ 契约测试 `verify-section-registry`（选择器顺序、别名、每类 header 按钮组成、空态/回退渲染、重复注册报错、renderer 无残留 if 链）。
+> - ⬜ 遗留：`parser.ts` 的 `SECTION_TYPES` 与「无卡片类型」两个列表仍是手写的（parse 层不该依赖渲染注册表，另议）；`sync.ts` 的 config 合并与 `renderer` 的 `SCANNING_SECTION_TYPES`/`MEDIA_SECTION_TYPES` 可在 Phase 3 一并收进定义（`scan: 'files' | 'media' | 'none'`）。
 
-**验收**：`renderer.ts:2447-2997` 的 if 链缩减为一个 `resolveSection(type).render(ctx)`；`view.ts:760` 路由表删除；`SECTION_TYPE_OPTIONS` 由注册表生成。
+**验收**：✅ `renderSection` 只剩注册表派发；✅ `SECTION_TYPE_OPTIONS` 由注册表生成；✅ `view.ts` 路由按规范类型走。
 
 ### Phase 3　配置与状态视图（1 天）
 

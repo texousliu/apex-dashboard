@@ -1,21 +1,12 @@
 import { memoCardText } from './card-move';
 import { extractCardParts } from './parser';
-import { Menu, App, Component, MarkdownRenderer, Platform, TFile, setIcon } from 'obsidian';
+import { App, Component, MarkdownRenderer, Platform, TFile, setIcon } from 'obsidian';
 import type { HoverParent, EventRef } from 'obsidian';
 import type { DashboardData, DashboardColumn, DashboardCard, RenderCallbacks, TaskItem, DocNode, DashboardSettings, CardSize, TrackerStyle } from './types';
 import { t, getLanguage, getLocale } from './i18n';
-import { renderLibrarySection } from './library-section';
-import { renderMediaSection, destroyMediaSection } from './media-section';
-import { getMediaTagService } from './media-tags';
-import { renderWereadSection } from './weread-section';
-import { renderTickTickSection } from './ticktick-section';
-import { renderDataviewSection, setDataviewApp } from './dataview-section';
-import { renderWebSection } from './web-section';
-import { renderRssSection } from './rss-section';
-import { renderPipelineSection } from './pipeline-section';
-import { renderSkillSection } from './skill-section';
-import { renderPmSection } from './pm-section';
+import { destroyMediaSection } from './media-section';
 import { renderQuickNoteRegion } from './quick-note-section';
+import { canonicalSectionType, createSectionButtons, fallbackSection, hasSectionType, resolveSection, type ReloadSlot, type SectionContext } from './section';
 import { TaskCardConfigModal } from './task-card-config-modal';
 import { resolveVaultImage } from './banner';
 import { focalToBackgroundPosition, isCenterFocal } from './focal-point-picker';
@@ -41,7 +32,6 @@ import { activityColor } from './pomodoro-service';
 import { renderSidebarLunarWidget } from './lunar-widget';
 import { renderSidebarYearProgress } from './year-progress-widget';
 import { renderSidebarCalendar } from './calendar-widget';
-import { renderCalendarSection } from './calendar-section';
 import { renderSidebarHabitWidget } from './habit-widget';
 import { renderSidebarSkillWidget, skillWidgetSig } from './skill-widget';
 import { renderSidebarQuickCaptureWidget, renderSidebarFileSearchWidget } from './capture-search-widgets';
@@ -2351,7 +2341,7 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 		// Web (the frame fills the row) sections have a fixed CSS height, so
 		// max-height alone can only shrink them. Write the inline height too so
 		// the drag-resized value can also grow the section past the default.
-		if (sectionType === 'web') {
+		if (resolveSection(sectionType)?.fixedHeight) {
 			el.style.height = `${column.height}px`;
 		}
 	}
@@ -2440,548 +2430,51 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 
 		const headerActions = header.createDiv({ cls: 'dashboard-section-header-actions' });
 
-	// Sticky ("便利贴") sections mix memo and todo cards: they get the one-click
-	// archive button and the task-template button (a template creates a todo
-	// card seeded with its tasks); plain cards come from the type chooser
-	// (onCardAdd -> StickyCardTypeModal).
-	if (sectionType === 'sticky') {
-		const archiveBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('renderer.archiveTasks') },
-		});
-		setIcon(archiveBtn, 'archive');
-		archiveBtn.addEventListener('click', () => callbacks.onArchiveTasks(column.name));
+	// Section-specific header buttons and body. Shared chrome (row, header,
+	// title rename, collapse toggle) is built above; the definition registered
+	// in src/section/defs/* decides everything below.
+	const reloadSlot: ReloadSlot = { fn: null };
+	const ctx: SectionContext = {
+		el,
+		header,
+		actions: headerActions,
+		column,
+		type: sectionType,
+		app,
+		data,
+		settings,
+		callbacks,
+		hoverParent: activeHoverParent,
+		openNoteInPopover: activeNoteOpener,
+		buttons: createSectionButtons({
+			el,
+			column,
+			actions: headerActions,
+			callbacks,
+			type: sectionType,
+			index: data ? data.columns.indexOf(column) : -1,
+			reload: reloadSlot,
+		}),
+		setReload: (fn) => { reloadSlot.fn = fn; },
+		renderCards: () => renderSectionCards(el, column, sectionType, callbacks, app, data, settings),
+	};
 
-		const templateBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('template.addFromTemplate') },
-		});
-		setIcon(templateBtn, 'layout-template');
-		templateBtn.addEventListener('click', () => callbacks.onAddFromTemplate(column.name));
-	}
+	const def = resolveSection(sectionType) ?? fallbackSection();
+	def.headerActions?.(ctx);
+	def.render(ctx);
+	return el;
+}
 
-	// Library section: render differently
-	if (sectionType === 'library' || sectionType === 'folder') {
-		// A folder section with no folder set would otherwise list the entire vault
-		// (queryVaultFiles skips the folder filter when it is empty). In that state
-		// renderLibrarySection never runs, so the toolbar (which hosts the always-
-		// visible config button) does not exist yet — keep a header config button
-		// as the only entry point. For a configured folder or any library section,
-		// renderLibrarySection renders that toolbar config button, so we skip this
-		// header one to avoid a duplicate next to the delete button.
-		const folderUnconfigured = sectionType === 'folder' && !(column.libraryConfig?.folders && column.libraryConfig.folders.some(f => f.trim()));
-
-		if (folderUnconfigured) {
-			const configBtn = headerActions.createEl('button', {
-				cls: 'dashboard-section-add-btn',
-				attr: { 'aria-label': t('folder.configure') },
-			});
-			setIcon(configBtn, 'settings');
-			configBtn.addEventListener('click', () => {
-				const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
-				el.dispatchEvent(event);
-			});
-		}
-
-		const deleteSectionBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
-			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
-		});
-		setIcon(deleteSectionBtn, 'trash-2');
-		deleteSectionBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
-		});
-
-		if (folderUnconfigured) {
-			el.createDiv({ cls: 'dashboard-library-empty dashboard-folder-empty', text: t('folder.empty') });
-			return el;
-		}
-
-		renderLibrarySection(el, column, app, (config) => {
-			callbacks.onLibraryConfigChange(column.name, config);
-		}, activeHoverParent, activeNoteOpener);
-		return el;
-	}
-
-	// Images / videos sections: full-vault media thumbnail wall; the config
-	// modal (gear) currently manages the excluded-folder set.
-	if (sectionType === 'images' || sectionType === 'videos') {
-		const configBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('media.configure') },
-		});
-		setIcon(configBtn, 'settings');
-		configBtn.addEventListener('click', () => {
-			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
-			el.dispatchEvent(event);
-		});
-
-		const deleteSectionBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
-			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
-		});
-		setIcon(deleteSectionBtn, 'trash-2');
-		deleteSectionBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
-		});
-
-		renderMediaSection(el, column, app, activeHoverParent, callbacks.onOpenNoteInPopover, getMediaTagService() ?? undefined);
-		return el;
-	}
-
-	// Calendar section: the sidebar calendar's enlarged view (full month grid
-	// with multi-day bars / week time grid) embedded in the board. Shares the
-	// sidebar widget's scan (calendarExcludeFolders) and refreshes in place on
-	// vault task changes (see refreshCalendarSections).
-	if (sectionType === 'calendar') {
-		const deleteSectionBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
-			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
-		});
-		setIcon(deleteSectionBtn, 'trash-2');
-		deleteSectionBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
-		});
-
-		if (settings) {
-			renderCalendarSection(el, app, settings, callbacks.onOpenNoteAtLine);
-		} else {
-			el.createDiv({ cls: 'dashboard-library-empty', text: t('calendar.noEvents') });
-		}
-		return el;
-	}
-
-	// Weread section: reading data from the official API.
-	if (sectionType === 'weread') {
-		const configBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('weread.configure') },
-		});
-		setIcon(configBtn, 'settings');
-		configBtn.addEventListener('click', () => {
-			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
-			el.dispatchEvent(event);
-		});
-
-		// Refresh button — same icon-button style as the other header actions,
-		// positioned just left of delete.
-		const refreshBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('weread.refresh') },
-		});
-		setIcon(refreshBtn, 'refresh-cw');
-		let reload: (() => void) | null = null;
-		refreshBtn.addEventListener('click', () => reload?.());
-
-		const deleteSectionBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
-			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
-		});
-		setIcon(deleteSectionBtn, 'trash-2');
-		deleteSectionBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
-		});
-
-		const apiKey = (settings?.wereadApiKey ?? '').trim();
-		const importPath = settings?.wereadImportPath ?? 'Weread/划线';
-		renderWereadSection(el, column, app, apiKey, importPath, (fn) => { reload = fn; });
-		return el;
-	}
-
-	// TickTick section: tasks/habits from the unofficial V2 API (cookie auth).
-	if (sectionType === 'ticktick') {
-		const ttView = column.ticktickConfig?.view === 'lists' ? 'lists' : 'today';
-
-		// View toggle: Today
-		const todayBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn' + (ttView === 'today' ? ' active' : ''),
-			attr: { 'aria-label': t('ticktick.viewToday') },
-		});
-		setIcon(todayBtn, 'calendar-check');
-		todayBtn.addEventListener('click', () => {
-			el.dispatchEvent(new CustomEvent('dashboard-ticktick-view', { detail: { columnName: column.name, view: 'today' }, bubbles: true }));
-		});
-
-		// View toggle: Lists
-		const listsBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn' + (ttView === 'lists' ? ' active' : ''),
-			attr: { 'aria-label': t('ticktick.viewLists') },
-		});
-		setIcon(listsBtn, 'list');
-		listsBtn.addEventListener('click', () => {
-			el.dispatchEvent(new CustomEvent('dashboard-ticktick-view', { detail: { columnName: column.name, view: 'lists' }, bubbles: true }));
-		});
-
-		// Project filter (only in lists view)
-		if (ttView === 'lists') {
-			const filterBtn = headerActions.createEl('button', {
-				cls: 'dashboard-section-add-btn',
-				attr: { 'aria-label': t('ticktick.filterProjects') },
-			});
-			setIcon(filterBtn, 'filter');
-			filterBtn.addEventListener('click', () => {
-				el.dispatchEvent(new CustomEvent('dashboard-ticktick-filter', { detail: { columnName: column.name }, bubbles: true }));
-			});
-		}
-
-		const refreshBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('ticktick.refresh') },
-		});
-		setIcon(refreshBtn, 'refresh-cw');
-		let reload: (() => void) | null = null;
-		refreshBtn.addEventListener('click', () => reload?.());
-
-		const deleteSectionBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
-			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
-		});
-		setIcon(deleteSectionBtn, 'trash-2');
-		deleteSectionBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
-		});
-
-		const region = settings?.ticktickRegion === 'ticktick' ? 'ticktick' : 'dida365';
-		const cookie = (settings?.ticktickCookie ?? '').trim();
-		const csrf = (settings?.ticktickCsrf ?? '').trim();
-		const deviceVersion = settings?.ticktickDeviceVersion;
-		const tz = (settings?.ticktickTimezone ?? '').trim() || 'Asia/Shanghai';
-		renderTickTickSection(el, column, app, region, cookie, csrf, deviceVersion, tz, (fn) => { reload = fn; },
-			(projectId, width) => {
-				const cfg = column.ticktickConfig;
-				if (cfg) {
-					const newWidths = { ...(cfg.projectWidths ?? {}), [projectId]: width };
-					el.dispatchEvent(new CustomEvent('dashboard-ticktick-resize', { detail: { columnName: column.name, projectWidths: newWidths }, bubbles: true }));
-				}
-			});
-		return el;
-	}
-
-	// Dataview section: DQL query results (TABLE/LIST/TASK/CALENDAR).
-	if (sectionType === 'dataview') {
-		setDataviewApp(app);
-
-		// Manual refresh (deliberately NOT wired to the vault-change debounce).
-		const refreshBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('dataview.refresh') },
-		});
-		setIcon(refreshBtn, 'refresh-cw');
-		let reload: (() => void) | null = null;
-		refreshBtn.addEventListener('click', () => reload?.());
-
-		const configBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('dataview.configure') },
-		});
-		setIcon(configBtn, 'settings');
-		configBtn.addEventListener('click', () => {
-			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
-			el.dispatchEvent(event);
-		});
-
-		const deleteSectionBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
-			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
-		});
-		setIcon(deleteSectionBtn, 'trash-2');
-		deleteSectionBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
-		});
-
-		// onOpenNoteAtLine is the calendar's task-jump channel: TASK rows open the
-		// popover at their own source line instead of the top of the note.
-		renderDataviewSection(el, column, app, activeHoverParent,
-			callbacks.onOpenNoteInPopover ?? null,
-			callbacks.onOpenNoteAtLine ?? null,
-			(fn) => { reload = fn; },
-			(cfg) => callbacks.onDataviewConfigChange(column.name, cfg));
-		return el;
-	}
-
-	// Web section: an embedded page. Frameable sites load as an iframe; sites
-	// whose headers refuse framing load in a desktop webview (see web-section).
-	if (sectionType === 'web') {
-		const refreshBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('web.refresh') },
-		});
-		setIcon(refreshBtn, 'refresh-cw');
-		let reload: (() => void) | null = null;
-		refreshBtn.addEventListener('click', () => reload?.());
-
-		const configBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('web.configure') },
-		});
-		setIcon(configBtn, 'settings');
-		configBtn.addEventListener('click', () => {
-			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
-			el.dispatchEvent(event);
-		});
-
-		const deleteSectionBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
-			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
-		});
-		setIcon(deleteSectionBtn, 'trash-2');
-		deleteSectionBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
-		});
-
-		renderWebSection(el, column, (fn) => { reload = fn; });
-		return el;
-	}
-
-	// RSS section: subscription list rendered by rss-section (mixed reverse-
-	// chronological rows, reader modal, per-row article download).
-	if (sectionType === 'rss') {
-		const refreshBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('web.refresh') },
-		});
-		setIcon(refreshBtn, 'refresh-cw');
-		let reload: (() => void) | null = null;
-		refreshBtn.addEventListener('click', () => reload?.());
-
-		const configBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('rss.configure') },
-		});
-		setIcon(configBtn, 'settings');
-		configBtn.addEventListener('click', () => {
-			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
-			el.dispatchEvent(event);
-		});
-
-		const deleteSectionBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
-			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
-		});
-		setIcon(deleteSectionBtn, 'trash-2');
-		deleteSectionBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
-		});
-
-		renderRssSection(el, column, app, (fn) => { reload = fn; });
-		return el;
-	}
-
-	// Pipeline section: agent-driven workflow board rendered by
-	// pipeline-section (stage columns, drag-to-advance, skill dispatch).
-	if (sectionType === 'pipeline') {
-		// Phones and tablets cannot host the agent skills this section
-		// dispatches — hide it entirely there (desktop only feature).
-		if (Platform.isMobile) {
-			el.addClass('dashboard-section-row--pipeline-off-mobile');
-			return el;
-		}
-		// Within-stage card order (native Menu; repo convention: pick →
-		// persist + in-place refresh through the board event).
-		const sortBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn dashboard-pipeline-sort-btn',
-			attr: { 'aria-label': t('pipeline.sortBy') },
-		});
-		setIcon(sortBtn, 'arrow-down-up');
-		sortBtn.title = t('pipeline.sortBy');
-		// One fixed icon; the chosen mode appears as text beside it.
-		const sortMode = column.pipelineConfig?.sortBy ?? 'mtime';
-		if (sortMode !== 'mtime') {
-			const labelKey = sortMode === 'ctime' ? 'pipeline.sortCtime' : sortMode === 'platform' ? 'pipeline.sortPlatform' : sortMode === 'name' ? 'pipeline.sortName' : 'pipeline.sortManual';
-			sortBtn.createSpan({ cls: 'dashboard-pipeline-sort-label', text: t(labelKey) });
-		}
-		sortBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			const menu = new Menu();
-			const options: Array<{ value: 'mtime' | 'ctime' | 'platform' | 'name' | 'manual'; label: string }> = [
-				{ value: 'mtime', label: t('pipeline.sortMtime') },
-				{ value: 'ctime', label: t('pipeline.sortCtime') },
-				{ value: 'platform', label: t('pipeline.sortPlatform') },
-				{ value: 'name', label: t('pipeline.sortName') },
-				{ value: 'manual', label: t('pipeline.sortManual') },
-			];
-			const current = column.pipelineConfig?.sortBy ?? 'mtime';
-			for (const opt of options) {
-				menu.addItem(item => {
-					item.setTitle(opt.label).onClick(() => {
-						if (opt.value === current) return;
-						sortBtn.dispatchEvent(new CustomEvent('dashboard-pipeline-sort', {
-							detail: { columnName: column.name, sortBy: opt.value === 'mtime' ? undefined : opt.value },
-							bubbles: true,
-						}));
-					});
-					if (opt.value === current) item.setIcon('check');
-				});
-			}
-			menu.showAtMouseEvent(e);
-		});
-
-		const configBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('pipeline.cfgTitle') },
-		});
-		setIcon(configBtn, 'settings');
-		configBtn.addEventListener('click', () => {
-			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
-			el.dispatchEvent(event);
-		});
-
-		const deleteSectionBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
-			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
-		});
-		setIcon(deleteSectionBtn, 'trash-2');
-		deleteSectionBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
-		});
-
-		renderPipelineSection(el, column, app, callbacks, activeHoverParent);
-		return el;
-	}
-
-	// Skills section: AI-skill library rendered by skill-section (aggregated
-	// cards with source badges + per-store agent launch buttons, import,
-	// detail/reveal/trash, pinned skills).
-	if (sectionType === 'skills') {
-		// "New skill": dispatches the configured creator skill (skill-creator
-		// by default). view.ts opens the one-time config on the first click.
-		const createSkillBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('skills.createSkill') },
-		});
-		setIcon(createSkillBtn, 'plus');
-		createSkillBtn.addEventListener('click', () => {
-			const event = new CustomEvent('dashboard-skills-create', { detail: { columnName: column.name }, bubbles: true });
-			el.dispatchEvent(event);
-		});
-
-		const refreshBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('skills.refresh') },
-		});
-		setIcon(refreshBtn, 'refresh-cw');
-		let reload: (() => void) | null = null;
-		refreshBtn.addEventListener('click', () => reload?.());
-
-		const configBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('skills.cfgTitle') },
-		});
-		setIcon(configBtn, 'settings');
-		configBtn.addEventListener('click', () => {
-			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
-			el.dispatchEvent(event);
-		});
-
-		const deleteSectionBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
-			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
-		});
-		setIcon(deleteSectionBtn, 'trash-2');
-		deleteSectionBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
-		});
-
-		renderSkillSection(el, column, app, settings, (fn) => { reload = fn; });
-		return el;
-	}
-
-	// PM section: project management cards (one per project note) with the
-	// board modal, work notes, skills, archive/delete. Data-first (notes +
-	// metadata cache), so it runs on mobile too — the card drag-reorder is
-	// desktop HTML5 DnD and simply stays inert on touch (pin/sort still
-	// reorder); the board modal has its own ≤900px/≤560px layouts.
-	if (sectionType === 'pm') {
-		// New project: same header + button the other sections use; the
-		// creation modal opens through the view's event route.
-		const newProjectBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('pm.new') },
-		});
-		setIcon(newProjectBtn, 'plus');
-		newProjectBtn.addEventListener('click', () => {
-			const event = new CustomEvent('dashboard-pm-new', { detail: { columnName: column.name }, bubbles: true });
-			el.dispatchEvent(event);
-		});
-
-		// Archived projects: lightweight viewer (full board per project,
-		// restore, delete).
-		const archiveBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('pm.archive.title') },
-		});
-		setIcon(archiveBtn, 'archive');
-		archiveBtn.addEventListener('click', () => {
-			const event = new CustomEvent('dashboard-pm-archive', { detail: { columnName: column.name }, bubbles: true });
-			el.dispatchEvent(event);
-		});
-
-		const configBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('pm.cfgTitle') },
-		});
-		setIcon(configBtn, 'settings');
-		configBtn.addEventListener('click', () => {
-			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
-			el.dispatchEvent(event);
-		});
-
-		const deleteSectionBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
-			attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
-		});
-		setIcon(deleteSectionBtn, 'trash-2');
-		deleteSectionBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
-		});
-
-		renderPmSection(el, column, app);
-		return el;
-	}
-
-	const addCardBtn = headerActions.createEl('button', {
-		cls: 'dashboard-section-add-btn',
-		attr: { 'aria-label': t('renderer.addCardTo', { column: column.name }) },
-	});
-	setIcon(addCardBtn, 'plus');
-	addCardBtn.addEventListener('click', () => callbacks.onCardAdd(column.name));
-
-	// Notes sections: gear opens the per-section settings (show covers, new-note
-	// template + save folder). Same dispatch the library sections' config button
-	// uses; view.ts routes it by sectionType.
-	if (sectionType === 'projects') {
-		const notesCfgBtn = headerActions.createEl('button', {
-			cls: 'dashboard-section-add-btn',
-			attr: { 'aria-label': t('notesCfg.title') },
-		});
-		setIcon(notesCfgBtn, 'settings');
-		notesCfgBtn.addEventListener('click', () => {
-			const event = new CustomEvent('dashboard-library-config', { detail: { columnName: column.name }, bubbles: true });
-			el.dispatchEvent(event);
-		});
-	}
-
-	const deleteSectionBtn = headerActions.createEl('button', {
-		cls: 'dashboard-section-add-btn dashboard-section-delete-btn',
-		attr: { 'aria-label': t('renderer.deleteSection', { column: column.name }) },
-	});
-	setIcon(deleteSectionBtn, 'trash-2');
-	deleteSectionBtn.addEventListener('click', (e) => {
-		e.stopPropagation();
-		callbacks.onColumnDelete(column.name, data ? data.columns.indexOf(column) : -1);
-	});
-
+/** Draw the plain card list of a section that holds generic cards. */
+function renderSectionCards(
+	el: HTMLElement,
+	column: DashboardColumn,
+	sectionType: string,
+	callbacks: RenderCallbacks,
+	app: App,
+	data?: DashboardData,
+	settings?: DashboardSettings,
+): void {
 	const cardsContainer = el.createDiv({ cls: 'dashboard-section-cards' });
 
 	for (const card of column.cards) {
@@ -2992,10 +2485,7 @@ export function renderSection(column: DashboardColumn, callbacks: RenderCallback
 			console.error('[Dashboard] renderCard error:', card.id, card.type, err);
 		}
 	}
-
-	return el;
 }
-
 /** Render one dashboard card (memo note, todo list, project, ...). Used by
  *  the section pipelines AND by the immersive board, which dissolves sticky
  *  sections into standalone card tiles (a memo card / todo card are card
@@ -4414,26 +3904,13 @@ function wireMemoMarkdownLinks(container: HTMLElement, app: App): void {
 	}
 
 function getSectionType(column: DashboardColumn): string {
-	// Retired memo/todo types normalize to sticky wherever they come from
-	// (parse migrates; this also covers hand-built legacy columns).
-	if (column.sectionType === 'memo' || column.sectionType === 'todo') return 'sticky';
-	if (column.sectionType) return column.sectionType;
+	// Retired memo/todo ids fold into sticky wherever they come from (parse
+	// migrates; the registry aliases also cover hand-built legacy columns).
+	if (column.sectionType) return canonicalSectionType(column.sectionType);
+	// Columns created before sectionType was stored carry the type in the name.
+	// A name that is not a registered type falls through to card inference.
 	const lower = column.name.toLowerCase();
-	if (lower === 'memo' || lower === 'todo' || lower === 'sticky') return 'sticky';
-	if (lower === 'projects') return 'projects';
-	if (lower === 'dashboard') return 'dashboard';
-	if (lower === 'library') return 'library';
-	if (lower === 'folder') return 'folder';
-	if (lower === 'images') return 'images';
-	if (lower === 'videos') return 'videos';
-	if (lower === 'alltasks') return 'alltasks';
-	if (lower === 'calendar') return 'calendar';
-	if (lower === 'dataview') return 'dataview';
-	if (lower === 'weread') return 'weread';
-	if (lower === 'ticktick') return 'ticktick';
-	if (lower === 'web') return 'web';
-	if (lower === 'rss') return 'rss';
-	if (lower === 'skills') return 'skills';
+	if (hasSectionType(lower)) return canonicalSectionType(lower);
 	if (column.cards.length > 0) {
 		const types = new Set(column.cards.map(c => c.type));
 		const dashboardTypes = new Set(['chart', 'weather', 'tracker']);

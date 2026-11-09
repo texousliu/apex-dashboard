@@ -207,15 +207,20 @@ assert.ok(agendaSrc.includes("ignore: '.dashboard-alltasks-chip',"),
 	'3: the agenda keeps its source chip clickable on its own');
 
 {
-	const callIdx = rendererSrc.indexOf('renderDataviewSection(el, column, app, activeHoverParent,');
-	assert.ok(callIdx > 0, '3: the section is rendered by the dashboard renderer');
-	const call = rendererSrc.slice(callIdx, callIdx + 400);
-	assert.ok(call.includes('callbacks.onOpenNoteInPopover ?? null'),
+	// The section body moved into the registry (Phase 2): the dataview card is
+	// rendered by its definition, not by a branch in the renderer's if-chain.
+	const dataSrc = readFileSync('src/section/defs/data.ts', 'utf8');
+	const callIdx = dataSrc.indexOf('renderDataviewSection(');
+	assert.ok(callIdx > 0, '3: the dataview definition renders the card');
+	const call = dataSrc.slice(callIdx, callIdx + 500);
+	assert.ok(call.includes('ctx.callbacks.onOpenNoteInPopover ?? null'),
 		'3: the generic opener still comes from onOpenNoteInPopover');
-	assert.ok(call.includes('callbacks.onOpenNoteAtLine ?? null'),
+	assert.ok(call.includes('ctx.callbacks.onOpenNoteAtLine ?? null'),
 		'3: the line opener comes from the calendar-sections channel (onOpenNoteAtLine)');
-	assert.ok(call.indexOf('onOpenNoteInPopover') < call.indexOf('onOpenNoteAtLine'),
+	assert.ok(call.indexOf('ctx.callbacks.onOpenNoteInPopover') < call.indexOf('ctx.callbacks.onOpenNoteAtLine'),
 		'3: argument order matches the signature (opener, then line opener)');
+	assert.ok(!rendererSrc.includes("if (sectionType === 'dataview')"),
+		'3: the renderer no longer special-cases dataview inline');
 }
 
 /* ------------------------------- 4. the view ------------------------------- */
