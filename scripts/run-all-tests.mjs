@@ -10,6 +10,12 @@
  *   node scripts/run-all-tests.mjs                 # everything
  *   node scripts/run-all-tests.mjs dataview task   # only names containing any keyword
  *   node scripts/run-all-tests.mjs --bail          # stop at the first failure
+ *   node scripts/run-all-tests.mjs --clock-audit   # run with the system clock faked
+ *
+ * `--clock-audit` preloads scripts/fake-clock.cjs into every child (FAKE_NOW
+ * overrides the instant). A verify script that hardcoded "today" — or that
+ * reads the wall clock where it should read the frozen `Date.now` — fails here
+ * while passing on the day it was written. Run it when touching date code.
  */
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -21,6 +27,7 @@ const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 
 const argv = process.argv.slice(2);
 const bail = argv.includes('--bail');
+const clockAudit = argv.includes('--clock-audit');
 const keywords = argv.filter(a => !a.startsWith('--')).map(a => a.toLowerCase());
 
 const all = Object.keys(pkg.scripts)
@@ -39,6 +46,18 @@ if (selected.length === 0) {
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const results = [];
 
+const auditEnv = clockAudit
+	? {
+		...process.env,
+		NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --require ${join(root, 'scripts', 'fake-clock.cjs')}`.trim(),
+	}
+	: process.env;
+
+if (clockAudit) {
+	const fakeNow = process.env.FAKE_NOW || '2031-06-15T09:00:00 (default)';
+	console.log(`clock audit: every test runs with the system clock at ${fakeNow}`);
+}
+
 function runOne(name) {
 	return new Promise((resolve) => {
 		const started = Date.now();
@@ -46,6 +65,7 @@ function runOne(name) {
 			cwd: root,
 			shell: process.platform === 'win32',
 			stdio: ['ignore', 'pipe', 'pipe'],
+			env: auditEnv,
 		});
 		let output = '';
 		child.stdout.on('data', (chunk) => { output += chunk.toString(); });

@@ -166,8 +166,13 @@ type StubMoment = {
 	isValid(): boolean;
 };
 export function moment(input?: number | string, _format?: string, _strict?: boolean): StubMoment {
+	// `new Date(Date.now())`, not `new Date()`: a bare constructor reads the
+	// system clock directly and ignores a frozen `Date.now`, so any test that
+	// pinned "today" silently kept using the real date. That is why the
+	// daily-note fixtures passed on the day they were written and failed the
+	// next morning.
 	const date = input == null
-		? new Date()
+		? new Date(Date.now())
 		: typeof input === 'number'
 			? new Date(input)
 			: new Date(/^\d{4}-\d{2}-\d{2}$/.test(input) ? `${input}T00:00:00` : input);

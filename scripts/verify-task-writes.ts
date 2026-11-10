@@ -24,6 +24,7 @@
  */
 import { strict as assert } from 'node:assert';
 import { El, findByClass } from './mini-dom';
+import { SENTINEL_NOW, withFrozenNow } from './test-clock';
 import { Notice, TFile } from 'obsidian';
 import { archiveCompletedTasks, saveTasksToDaily, type TaskWriteHost } from '../src/view/task-writes';
 import type { DashboardCard, DashboardData, DashboardSettings, TaskItem } from '../src/types';
@@ -178,7 +179,10 @@ async function main(): Promise<void> {
 	// 4. Save into an existing note WITH the heading: merge, do not append a
 	//    second copy. The hand-added line the card knows nothing about stays.
 	{
-		const path = 'Daily/2026-11-09.md';
+		// Sentinel instant, not a date that could plausibly be "today": if the
+		// freeze ever stops reaching moment(), the path below cannot match by
+		// accident (see scripts/test-clock.ts).
+		const path = `Daily/${SENTINEL_NOW.slice(0, 10)}.md`;
 		const existing = [
 			'---', 'tags: [daily]', '---', '',
 			'### Sprint', '- [ ] a', '- [ ] hand-added', '',
@@ -188,14 +192,9 @@ async function main(): Promise<void> {
 			daily: { folder: 'Daily', format: 'YYYY-MM-DD' },
 			notes: { [path]: existing },
 		});
-		// Freeze "today" so the path matches the fixture.
-		const realNow = Date.now;
-		Date.now = () => new Date('2026-11-09T10:00:00').getTime();
-		try {
-			await saveTasksToDaily(rig.host, card({ title: 'Sprint', tasks: [task('a', true)] }));
-		} finally {
-			Date.now = realNow;
-		}
+		await withFrozenNow(SENTINEL_NOW, () =>
+			saveTasksToDaily(rig.host, card({ title: 'Sprint', tasks: [task('a', true)] })));
+		assert.ok(rig.files.has(path), '4: "today" resolves to the frozen date, not the real one');
 		const content = rig.files.get(path)!;
 		assert.equal(content.match(/### Sprint/g)?.length, 1, '4: still exactly one block');
 		assert.ok(content.includes('- [x] a'), '4: card entry updated in place');
@@ -206,18 +205,14 @@ async function main(): Promise<void> {
 	// 5. Save into an existing note WITHOUT the heading: prepend a block after
 	//    the frontmatter (the file must never be rewritten from scratch).
 	{
-		const path = 'Daily/2026-11-09.md';
+		const path = `Daily/${SENTINEL_NOW.slice(0, 10)}.md`;
 		const rig = makeRig({
 			daily: { folder: 'Daily', format: 'YYYY-MM-DD' },
 			notes: { [path]: '---\ntags: [daily]\n---\n\n## Notes\nkept\n' },
 		});
-		const realNow = Date.now;
-		Date.now = () => new Date('2026-11-09T10:00:00').getTime();
-		try {
-			await saveTasksToDaily(rig.host, card({ title: 'Sprint', tasks: [task('a')] }));
-		} finally {
-			Date.now = realNow;
-		}
+		await withFrozenNow(SENTINEL_NOW, () =>
+			saveTasksToDaily(rig.host, card({ title: 'Sprint', tasks: [task('a')] })));
+		assert.ok(rig.files.has(path), '5: "today" resolves to the frozen date, not the real one');
 		const content = rig.files.get(path)!;
 		assert.ok(content.startsWith('---\ntags: [daily]\n---\n### Sprint'), '5: block lands right after the frontmatter');
 		assert.ok(content.includes('## Notes\nkept'), '5: existing body preserved below');
@@ -263,7 +258,7 @@ async function main(): Promise<void> {
 	{
 		const rig = makeRig({
 			// The convention (documented in the settings UI) is an explicit .md path;
-			// slashes are stripped, the extension is taken as given.
+			// slashes are stripped, and a missing extension is added (case 13).
 			settings: { taskArchiveTarget: 'file', taskArchivePath: '/Archive/Done.md/' },
 			notes: { 'Archive/Done.md': '# Log\n\n- old entry\n' },
 			columns: [{
@@ -333,6 +328,23 @@ async function main(): Promise<void> {
 		assert.deepEqual(rig.writes, [], '12: no write without a resolvable daily note');
 		assert.deepEqual(rig.archivedColumns, [], '12: board untouched');
 		assert.ok(notices.messages.length >= 1, '12: explains why');
+	}
+
+	// 13. A destination typed WITHOUT an extension gains `.md`. The vault only
+	//     indexes markdown by extension, so `Archive/Done` used to create a file
+	//     the explorer never lists — the tasks were written, the notice said
+	//     "archived", and the user could not find them.
+	{
+		const rig = makeRig({
+			settings: { taskArchiveTarget: 'file', taskArchivePath: 'Archive/Done' },
+			columns: [{ name: 'todo', sectionType: 'sticky', cards: [card({ tasks: [task('done', true)] })] }] as never,
+		});
+		const run = archiveCompletedTasks(rig.host, 'todo');
+		await answerConfirm(true);
+		await run;
+		assert.ok(rig.writes[0] === 'create:Archive/Done.md', '13: extension appended');
+		assert.ok(!rig.writes.some(w => w.endsWith('Archive/Done')), '13: nothing written without .md');
+		assert.ok(notices.messages.some(m => m.includes('Archive/Done.md')), '13: notice reports the real path');
 	}
 
 	console.log('verify-task-writes: ok');
