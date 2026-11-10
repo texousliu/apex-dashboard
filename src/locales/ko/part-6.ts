@@ -263,6 +263,7 @@ export const part6: Record<string, string> = {
 	"folder.noMatches": "일치하는 폴더가 없습니다.",
 	"folder.empty": "표시할 폴더를 선택하려면 위의 톱니바퀴 아이콘을 클릭하세요.",
 	"folder.noFolders": "선택한 폴더가 없습니다.",
+	"folder.libraryAll": "모든 폴더 포함",
 	"library.pageSize": "{count}/페이지",
 	"library.tags": "태그",
 	"library.modified": "수정됨",

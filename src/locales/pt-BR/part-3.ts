@@ -199,6 +199,7 @@ export const part3: Record<string, string> = {
 	"pomodoro.tagPinHint": "As tags fixadas permanecem no topo da lista de seleção rápida do widget",
 	"pomodoro.tagRenamePrompt": "Renomeie \"{name}\" para:",
 	"pomodoro.tagMergePrompt": "Mesclar \"{name}\" em qual tag?",
+	"pomodoro.tagMergeHint": "Mesclar esta tag em outra",
 	"pomodoro.tagDeleteConfirm": "Excluir tag \"{name}\"? Sua história cai em “Foco”.",
 	"pomodoro.tagExists": "Esse nome já existe",
 	"music.accountTitle": "conta NetEase Cloud Music",

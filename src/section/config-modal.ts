@@ -18,7 +18,7 @@ import { t } from '../i18n';
  *
  * ```ts
  * class FooConfigModal extends SectionConfigModal {
- *   protected title() { return t('foo.configure'); }
+ *   protected title() { return t('folder.configure'); }
  *   protected renderBody(body: HTMLElement) { …fields… }
  *   protected submit() { this.onSave(this.read()); this.close(); }
  * }

@@ -61,8 +61,11 @@ function renderSidebarWeatherInto(widget: HTMLElement, settings: import('../type
 	bodyOf(widget).createDiv({ cls: 'dashboard-sidebar-weather-loading', text: '...' });
 
 	const config = {
-		latitude: settings.widgetWeatherLat || 31.23,
-		longitude: settings.widgetWeatherLon || 121.47,
+		// `??`, not `||`: 0 is a real coordinate (the equator, the prime
+		// meridian). With `||` a user who picked either got the Shanghai
+		// default silently.
+		latitude: settings.widgetWeatherLat ?? 31.23,
+		longitude: settings.widgetWeatherLon ?? 121.47,
 		cityName: cityName || 'Shanghai',
 	};
 

@@ -199,6 +199,7 @@ export const part3: Record<string, string> = {
 	"pomodoro.tagPinHint": "Angeheftete Tags bleiben oben in der Schnellauswahlliste des Widgets",
 	"pomodoro.tagRenamePrompt": "Benennen Sie „{name}“ um in:",
 	"pomodoro.tagMergePrompt": "„{name}“ in welches Tag einbinden?",
+	"pomodoro.tagMergeHint": "Dieses Tag in ein anderes einbinden",
 	"pomodoro.tagDeleteConfirm": "Tag „{name}“ löschen? Seine Geschichte fällt in „Focus“.",
 	"pomodoro.tagExists": "Dieser Name existiert bereits",
 	"music.accountTitle": "NetEase Cloud Music-Konto",

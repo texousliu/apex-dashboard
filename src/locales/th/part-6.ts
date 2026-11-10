@@ -263,6 +263,7 @@ export const part6: Record<string, string> = {
 	"folder.noMatches": "ไม่มีโฟลเดอร์ที่ตรงกัน",
 	"folder.empty": "คลิกไอคอนรูปเฟืองด้านบนเพื่อเลือกโฟลเดอร์ที่จะแสดง",
 	"folder.noFolders": "ไม่ได้เลือกโฟลเดอร์",
+	"folder.libraryAll": "รวมทุกโฟลเดอร์แล้ว",
 	"library.pageSize": "{count}/หน้า",
 	"library.tags": "แท็ก",
 	"library.modified": "แก้ไขแล้ว",

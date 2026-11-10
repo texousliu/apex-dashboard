@@ -201,7 +201,11 @@ export async function archiveCompletedTasks(host: TaskWriteHost, columnName: str
 			destFile = note;
 		} else {
 			const configured = settings.taskArchivePath.trim().replace(/^\/+|\/+$/g, '');
-			const fullPath = configured || '归档/已完成.md';
+			// The vault only indexes markdown by extension. A path typed without
+			// `.md` used to create an extension-less file the explorer never
+			// shows — the archived tasks "vanished" with a success notice.
+			const base = configured || '归档/已完成';
+			const fullPath = /\.[a-z0-9]+$/i.test(base) ? base : `${base}.md`;
 			const slash = fullPath.lastIndexOf('/');
 			const folder = slash >= 0 ? fullPath.slice(0, slash) : '';
 			if (folder) await ensureFolder(host.app, folder);

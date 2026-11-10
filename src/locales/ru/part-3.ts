@@ -199,6 +199,7 @@ export const part3: Record<string, string> = {
 	"pomodoro.tagPinHint": "Закрепленные теги остаются вверху списка быстрого выбора виджета.",
 	"pomodoro.tagRenamePrompt": "Переименуйте \"{name}\" в:",
 	"pomodoro.tagMergePrompt": "В какой тег объединить \"{name}\"?",
+	"pomodoro.tagMergeHint": "Объединить этот тег с другим",
 	"pomodoro.tagDeleteConfirm": "Удалить тег \"{name}\"? Его история попадает в «Фокус».",
 	"pomodoro.tagExists": "Это имя уже существует.",
 	"music.accountTitle": "Учетная запись NetEase Cloud Music",

@@ -216,6 +216,7 @@ export const part1: Record<string, string> = {
 	"media.confirmDelete": "¿Eliminar \"{name}\"? Esto no se puede deshacer.",
 	"media.renameFailed": "No se pudo cambiar el nombre del archivo",
 	"media.deleted": "Movido a la papelera",
+	"media.deleteFailed": "No se pudieron eliminar algunos archivos",
 	"media.sizeSmall": "Pequeño",
 	"media.sizeMedium": "Medio",
 	"media.sizeLarge": "Grande",

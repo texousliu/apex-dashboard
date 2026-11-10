@@ -199,6 +199,7 @@ export const part3: Record<string, string> = {
 	"pomodoro.tagPinHint": "แท็กที่ปักหมุดจะอยู่ที่ด้านบนของรายการเลือกวิดเจ็ตด่วน",
 	"pomodoro.tagRenamePrompt": "เปลี่ยนชื่อ \"{name}\" เป็น:",
 	"pomodoro.tagMergePrompt": "รวม \"{name}\" เข้ากับแท็กใด",
+	"pomodoro.tagMergeHint": "รวมแท็กนี้เข้ากับแท็กอื่น",
 	"pomodoro.tagDeleteConfirm": "ลบแท็ก \"{name}\"? ประวัติของมันตกอยู่ใน \"โฟกัส\"",
 	"pomodoro.tagExists": "ชื่อนั้นมีอยู่แล้ว",
 	"music.accountTitle": "บัญชี NetEase Cloud Music",

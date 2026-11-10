@@ -199,6 +199,7 @@ export const part3: Record<string, string> = {
 	"pomodoro.tagPinHint": "Las etiquetas fijadas permanecen en la parte superior de la lista de selección rápida del widget",
 	"pomodoro.tagRenamePrompt": "Cambie el nombre de \"{name}\" a:",
 	"pomodoro.tagMergePrompt": "¿Fusionar \"{name}\" en qué etiqueta?",
+	"pomodoro.tagMergeHint": "Fusionar esta etiqueta en otra",
 	"pomodoro.tagDeleteConfirm": "¿Eliminar etiqueta \"{name}\"? Su historia cae en \"Focus\".",
 	"pomodoro.tagExists": "Ese nombre ya existe",
 	"music.accountTitle": "cuenta de NetEase Cloud Music",

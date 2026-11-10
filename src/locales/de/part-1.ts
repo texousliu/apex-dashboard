@@ -216,6 +216,7 @@ export const part1: Record<string, string> = {
 	"media.confirmDelete": "„{name}“ löschen? Dies kann nicht rückgängig gemacht werden.",
 	"media.renameFailed": "Datei konnte nicht umbenannt werden",
 	"media.deleted": "In den Papierkorb verschoben",
+	"media.deleteFailed": "Einige Dateien konnten nicht gelöscht werden",
 	"media.sizeSmall": "Klein",
 	"media.sizeMedium": "Mittel",
 	"media.sizeLarge": "Groß",

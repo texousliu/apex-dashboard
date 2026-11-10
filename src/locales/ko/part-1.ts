@@ -216,6 +216,7 @@ export const part1: Record<string, string> = {
 	"media.confirmDelete": "\"{name}\"을(를) 삭제하시겠습니까? 이 작업은 취소할 수 없습니다.",
 	"media.renameFailed": "파일 이름을 바꾸지 못했습니다.",
 	"media.deleted": "휴지통으로 이동했습니다.",
+	"media.deleteFailed": "일부 파일을 삭제하지 못했습니다",
 	"media.sizeSmall": "작음",
 	"media.sizeMedium": "보통",
 	"media.sizeLarge": "대",

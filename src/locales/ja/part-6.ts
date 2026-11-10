@@ -263,6 +263,7 @@ export const part6: Record<string, string> = {
 	"folder.noMatches": "一致するフォルダーはありません",
 	"folder.empty": "上の歯車アイコンをクリックして、表示するフォルダーを選択してください",
 	"folder.noFolders": "フォルダーが選択されていません",
+	"folder.libraryAll": "すべてのフォルダーが対象",
 	"library.pageSize": "{count}/ページ",
 	"library.tags": "のタグ",
 	"library.modified": "が修正されました",

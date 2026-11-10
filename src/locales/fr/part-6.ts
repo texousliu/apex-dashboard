@@ -263,6 +263,7 @@ export const part6: Record<string, string> = {
 	"folder.noMatches": "Aucun dossier correspondant",
 	"folder.empty": "Cliquez sur l'icône d'engrenage ci-dessus pour choisir un dossier à afficher",
 	"folder.noFolders": "Aucun dossier sélectionné",
+	"folder.libraryAll": "Tous les dossiers inclus",
 	"library.pageSize": "{count}/page",
 	"library.tags": "balises",
 	"library.modified": "modifié",

@@ -199,6 +199,7 @@ export const part3: Record<string, string> = {
 	"pomodoro.tagPinHint": "고정된 태그는 위젯 빠른 선택 목록의 상단에 유지됩니다.",
 	"pomodoro.tagRenamePrompt": "\"{name}\" 이름을 다음으로 변경:",
 	"pomodoro.tagMergePrompt": "\"{name}\"을(를) 어떤 태그에 병합하시겠습니까?",
+	"pomodoro.tagMergeHint": "이 태그를 다른 태그에 병합합니다",
 	"pomodoro.tagDeleteConfirm": "\"{name}\" 태그를 삭제하시겠습니까? 그 역사는 \"포커스\"에 속합니다.",
 	"pomodoro.tagExists": "이미 존재하는 이름입니다.",
 	"music.accountTitle": "NetEase 클라우드 뮤직 계정",

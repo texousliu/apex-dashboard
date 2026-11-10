@@ -263,6 +263,7 @@ export const part6: Record<string, string> = {
 	"folder.noMatches": "Nenhuma pasta correspondente",
 	"folder.empty": "Clique no ícone de engrenagem acima para escolher uma pasta para exibir",
 	"folder.noFolders": "Nenhuma pasta selecionada",
+	"folder.libraryAll": "Todas as pastas incluídas",
 	"library.pageSize": "{count}/página",
 	"library.tags": "tags",
 	"library.modified": "modificado",

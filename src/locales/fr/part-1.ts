@@ -216,6 +216,7 @@ export const part1: Record<string, string> = {
 	"media.confirmDelete": "Supprimer « {name} » ? Cela ne peut pas être annulé.",
 	"media.renameFailed": "Échec du renommage du fichier",
 	"media.deleted": "Déplacé vers la corbeille",
+	"media.deleteFailed": "Impossible de supprimer certains fichiers",
 	"media.sizeSmall": "Petit",
 	"media.sizeMedium": "Moyen",
 	"media.sizeLarge": "Grand",

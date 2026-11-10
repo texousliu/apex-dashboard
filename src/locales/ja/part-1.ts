@@ -216,6 +216,7 @@ export const part1: Record<string, string> = {
 	"media.confirmDelete": "「{name}」を削除しますか？これを元に戻すことはできません。",
 	"media.renameFailed": "ファイル名の変更に失敗しました",
 	"media.deleted": "ゴミ箱に移動しました",
+	"media.deleteFailed": "一部のファイルを削除できませんでした",
 	"media.sizeSmall": "小",
 	"media.sizeMedium": "中",
 	"media.sizeLarge": "大",

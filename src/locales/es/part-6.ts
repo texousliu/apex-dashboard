@@ -263,6 +263,7 @@ export const part6: Record<string, string> = {
 	"folder.noMatches": "No hay carpetas coincidentes",
 	"folder.empty": "Haga clic en el ícono de ajustes de arriba para elegir una carpeta para mostrar",
 	"folder.noFolders": "No hay carpetas seleccionadas",
+	"folder.libraryAll": "Todas las carpetas incluidas",
 	"library.pageSize": "{count}/página",
 	"library.tags": "etiquetas",
 	"library.modified": "modificado",

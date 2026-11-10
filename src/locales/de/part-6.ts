@@ -263,6 +263,7 @@ export const part6: Record<string, string> = {
 	"folder.noMatches": "Keine passenden Ordner",
 	"folder.empty": "Klicken Sie oben auf das Zahnradsymbol, um einen anzuzeigenden Ordner auszuwählen",
 	"folder.noFolders": "Keine Ordner ausgewählt",
+	"folder.libraryAll": "Alle Ordner eingeschlossen",
 	"library.pageSize": "{count}/Seite",
 	"library.tags": "Tags",
 	"library.modified": "geändert",

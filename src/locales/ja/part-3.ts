@@ -199,6 +199,7 @@ export const part3: Record<string, string> = {
 	"pomodoro.tagPinHint": "ピン留めされたタグはウィジェットのクイック選択リストの先頭に留まります",
 	"pomodoro.tagRenamePrompt": "「{name}」の名前を次のように変更します。",
 	"pomodoro.tagMergePrompt": "「{name}」をどのタグにマージしますか?",
+	"pomodoro.tagMergeHint": "このタグを別のタグにマージします",
 	"pomodoro.tagDeleteConfirm": "タグ「{name}」を削除しますか?その歴史は「Focus」に分類されます。",
 	"pomodoro.tagExists": "その名前はすでに存在します",
 	"music.accountTitle": "NetEase Cloud Music アカウント",

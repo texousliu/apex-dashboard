@@ -199,6 +199,7 @@ export const part3: Record<string, string> = {
 	"pomodoro.tagPinHint": "Les balises épinglées restent en haut de la liste de sélection rapide du widget",
 	"pomodoro.tagRenamePrompt": "Renommez \"{name}\" en :",
 	"pomodoro.tagMergePrompt": "Fusionner \"{name}\" dans quelle balise ?",
+	"pomodoro.tagMergeHint": "Fusionner cette balise dans une autre",
 	"pomodoro.tagDeleteConfirm": "Supprimer la balise \"{name}\" ? Son histoire tombe dans \"Focus\".",
 	"pomodoro.tagExists": "Ce nom existe déjà",
 	"music.accountTitle": "Compte NetEase Cloud Music",

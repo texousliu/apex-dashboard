@@ -263,6 +263,7 @@ export const part6: Record<string, string> = {
 	"folder.noMatches": "Нет подходящих папок.",
 	"folder.empty": "Щелкните значок шестеренки выше, чтобы выбрать папку для отображения.",
 	"folder.noFolders": "Папки не выбраны",
+	"folder.libraryAll": "Включены все папки",
 	"library.pageSize": "{count}/страница",
 	"library.tags": "теги",
 	"library.modified": "изменено",

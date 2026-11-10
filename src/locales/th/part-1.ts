@@ -216,6 +216,7 @@ export const part1: Record<string, string> = {
 	"media.confirmDelete": "ลบ \"{name}\" หรือไม่ สิ่งนี้ไม่สามารถยกเลิกได้",
 	"media.renameFailed": "ไม่สามารถเปลี่ยนชื่อไฟล์ได้",
 	"media.deleted": "ย้ายไปถังขยะแล้ว",
+	"media.deleteFailed": "ลบบางไฟล์ไม่สำเร็จ",
 	"media.sizeSmall": "เล็ก",
 	"media.sizeMedium": "กลาง",
 	"media.sizeLarge": "ใหญ่",
