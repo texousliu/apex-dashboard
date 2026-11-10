@@ -17,6 +17,8 @@ export class TaskCardConfigModal extends SectionConfigModal {
 	private behavior: 'stay' | 'end' | 'afterUnfinished';
 	private fromDaily: boolean;
 	private headingLevel: 1 | 2 | 3 | 4 | 5 | 6;
+	private affixPrefix: string;
+	private affixSuffix: string;
 
 	constructor(app: App, card: DashboardCard, onSave: (config: TaskCardConfig) => void) {
 		super(app);
@@ -25,6 +27,8 @@ export class TaskCardConfigModal extends SectionConfigModal {
 		this.behavior = card.taskCompleteBehavior ?? 'end';
 		this.fromDaily = card.tasksFromDaily === true;
 		this.headingLevel = card.dailyHeadingLevel ?? 3;
+		this.affixPrefix = card.taskPrefix ?? '';
+		this.affixSuffix = card.taskSuffix ?? '';
 	}
 
 	protected title(): string {
@@ -78,6 +82,39 @@ export class TaskCardConfigModal extends SectionConfigModal {
 		});
 		headingField.createDiv({ cls: 'dashboard-modal-hint', text: t('taskConfig.headingLevelDesc') });
 
+		// New-task affixes: the templates wrapped around whatever the user types
+		// into the card's add-task box. The rules live in src/task-affixes.ts —
+		// this dialog only collects the two strings, so the placeholders it
+		// documents must stay in sync with TASK_AFFIX_PLACEHOLDERS (a verify
+		// case asserts every one of them is listed here).
+		const prefixField = form.createDiv();
+		prefixField.createEl('label', { text: t('taskConfig.affixPrefix') });
+		const prefixInput = prefixField.createEl('input', {
+			cls: 'dashboard-modal-input',
+			attr: { type: 'text' },
+		});
+		prefixInput.value = this.affixPrefix;
+		prefixInput.addEventListener('input', () => { this.affixPrefix = prefixInput.value; });
+
+		const suffixField = form.createDiv();
+		suffixField.createEl('label', { text: t('taskConfig.affixSuffix') });
+		const suffixInput = suffixField.createEl('input', {
+			cls: 'dashboard-modal-input',
+			attr: { type: 'text' },
+		});
+		suffixInput.value = this.affixSuffix;
+		suffixInput.addEventListener('input', () => { this.affixSuffix = suffixInput.value; });
+
+		const affixHint = form.createDiv({ cls: 'dashboard-modal-hint' });
+		affixHint.createDiv({ text: t('taskConfig.affixDesc') });
+		affixHint.createDiv({ cls: 'dashboard-task-affix-help-title', text: t('taskConfig.affixPlaceholders') });
+		const placeholderList = affixHint.createEl('ul', { cls: 'dashboard-task-affix-placeholders' });
+		placeholderList.createEl('li', { text: t('taskConfig.affixPhText') });
+		placeholderList.createEl('li', { text: t('taskConfig.affixPhDate') });
+		placeholderList.createEl('li', { text: t('taskConfig.affixPhTime') });
+		placeholderList.createEl('li', { text: t('taskConfig.affixPhTitle') });
+		affixHint.createDiv({ text: t('taskConfig.affixHint') });
+
 	}
 
 	protected submit(): void {
@@ -85,6 +122,10 @@ export class TaskCardConfigModal extends SectionConfigModal {
 			taskCompleteBehavior: this.behavior,
 			tasksFromDaily: this.fromDaily,
 			dailyHeadingLevel: this.headingLevel,
+			// Trimmed here so the stored template never carries accidental
+			// leading/trailing spaces; empty means "no affix".
+			taskPrefix: this.affixPrefix.trim(),
+			taskSuffix: this.affixSuffix.trim(),
 		});
 		this.close();
 	}

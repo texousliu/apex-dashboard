@@ -1474,6 +1474,9 @@ export class DashboardView extends ItemView implements HoverParent {
 			taskCompleteBehavior: config.taskCompleteBehavior === 'end' ? undefined : config.taskCompleteBehavior,
 			tasksFromDaily: wantDaily ? true : undefined,
 			dailyHeadingLevel: level === 3 ? undefined : level,
+			// Empty is the default and stays unpersisted.
+			taskPrefix: config.taskPrefix.trim() || undefined,
+			taskSuffix: config.taskSuffix.trim() || undefined,
 		});
 		if (wantDaily) {
 			await this.sync.refreshDailyLinkedTasks();

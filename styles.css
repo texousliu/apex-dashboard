@@ -12520,6 +12520,27 @@ button.dashboard-skillsec-import:hover {
 	color: var(--db-text-muted, var(--text-muted));
 }
 
+/* Task-card affixes: the placeholder glossary sits inside the hint block, so it
+   inherits that block's muted size — only the list chrome and the sub-heading
+   need their own rules. */
+.dashboard-task-affix-help-title {
+	margin-top: 8px;
+	font-weight: 600;
+	color: var(--db-text, var(--text-normal));
+}
+
+.dashboard-task-affix-placeholders {
+	margin: 4px 0 8px;
+	padding-inline-start: 18px;
+	list-style: disc;
+}
+
+.dashboard-task-affix-placeholders li {
+	margin: 2px 0;
+	font-family: var(--font-monospace, monospace);
+	line-height: 1.5;
+}
+
 .dashboard-modal-input {
 	width: 100%;
 	padding: 8px 12px;

@@ -44,7 +44,7 @@ import { parseFocalPoint, formatFocalPoint, isCenterFocal } from './focal-point-
 import { normalizeColumnPairs } from './column-pairs';
 import { clampSpanW, clampSpanH, isImmersiveMode, migrateLegacyHeight } from './immersive-grid';
 
-const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'coverPos', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow', 'noteStyle', 'newNoteOpenMode', 'taskCompleteBehavior', 'tasksFromDaily', 'dailyHeadingLevel']);
+const KNOWN_METADATA_KEYS = new Set(['id', 'link', 'progress', 'due', 'streak', 'type', 'color', 'cover', 'coverPos', 'width', 'size', 'lat', 'lon', 'city', 'track', 'days', 'cols', 'rows', 'gcol', 'grow', 'noteStyle', 'newNoteOpenMode', 'taskCompleteBehavior', 'tasksFromDaily', 'dailyHeadingLevel', 'taskPrefix', 'taskSuffix']);
 // 'notes', 'memo' and 'todo' are retired standalone section types: they parse
 // (old dashboard files still carry `type: notes|memo|todo`) but immediately
 // migrate in parseColumns (notes -> projects + showCover:false, memo/todo ->
@@ -785,6 +785,12 @@ export function serialize(data: DashboardData): string {
 			if (card.dailyHeadingLevel && card.dailyHeadingLevel !== 3) {
 				lines.push(`dailyHeadingLevel: ${card.dailyHeadingLevel}`);
 			}
+
+			// New-task affixes: empty stays unpersisted. Values are written
+			// verbatim — `#tags`, `[[links]]` and spaces are all fine because the
+			// metadata scanner takes the rest of the line.
+			if (card.taskPrefix) lines.push(`taskPrefix: ${card.taskPrefix}`);
+			if (card.taskSuffix) lines.push(`taskSuffix: ${card.taskSuffix}`);
 
 			if (card.type === 'generic') lines.push('type: generic');
 
@@ -2062,6 +2068,8 @@ function parseCard(block: { title: string; body: string }, columnName: string): 
 				? lv as 1 | 2 | 3 | 4 | 5 | 6
 				: undefined;
 		})(),
+		taskPrefix: metadata.taskPrefix || undefined,
+		taskSuffix: metadata.taskSuffix || undefined,
 		column: columnName,
 		body: cleanBody,
 		tasks,

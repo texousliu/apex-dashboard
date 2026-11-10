@@ -4,6 +4,7 @@ import type { DashboardSettings, DashboardCard, DashboardData, DashboardColumn, 
 import { parse, serialize, generateDefaultMarkdown } from './parser';
 import { isImmersiveMode } from './immersive-grid';
 import { readCardTasksFromToday, writeCardTasksToToday } from './daily-task-source';
+import { applyTaskAffixes } from './task-affixes';
 import { t } from './i18n';
 import {
 	type TaskPath,
@@ -400,7 +401,16 @@ export class SyncEngine {
 	async addTask(cardId: string, text: string, parentPath?: TaskPath): Promise<void> {
 		if (!this.data || !text.trim()) return;
 
-		const node: TaskItem = { text: text.trim(), checked: false };
+		// Affixes are applied to what gets STORED, not to the input box, so the
+		// card, the daily-note mirror and the raw markdown all carry the same
+		// decorated text (and a later edit of the task does not re-apply them).
+		const card = this.data.columns.flatMap(col => col.cards).find(c => c.id === cardId);
+		const decorated = applyTaskAffixes(
+			text,
+			card ? { prefix: card.taskPrefix, suffix: card.taskSuffix, title: card.title } : undefined,
+			new Date(),
+		);
+		const node: TaskItem = { text: decorated, checked: false };
 		this.data = this.mapCardTasks(this.data, cardId, (tasks) =>
 			parentPath && parentPath.length > 0
 				? appendChild(tasks, parentPath, node)
@@ -458,7 +468,7 @@ export class SyncEngine {
 		this.scheduleDeferredWrite();
 	}
 
-	async updateCard(cardId: string, updates: Partial<Pick<DashboardCard, 'title' | 'body' | 'dueDate' | 'color' | 'coverImage' | 'coverPos' | 'width' | 'size' | 'gridCols' | 'gridRows' | 'gridCol' | 'gridRow' | 'newNoteOpenMode' | 'taskCompleteBehavior' | 'tasksFromDaily' | 'dailyHeadingLevel'>>): Promise<void> {
+	async updateCard(cardId: string, updates: Partial<Pick<DashboardCard, 'title' | 'body' | 'dueDate' | 'color' | 'coverImage' | 'coverPos' | 'width' | 'size' | 'gridCols' | 'gridRows' | 'gridCol' | 'gridRow' | 'newNoteOpenMode' | 'taskCompleteBehavior' | 'tasksFromDaily' | 'dailyHeadingLevel' | 'taskPrefix' | 'taskSuffix'>>): Promise<void> {
 		if (!this.data) return;
 
 		this.data = {

@@ -745,6 +745,13 @@ export interface DashboardCard {
 	 *  `tasksFromDaily` mirroring). Undefined = 3 (`### Title`), the
 	 *  historical default, and stays unpersisted. */
 	dailyHeadingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
+	/** Task cards only: template prepended to every newly added task. Supports
+	 *  `{{text}}` / `{{date}}` / `{{time}}` / `{{title}}` (see
+	 *  src/task-affixes.ts). Undefined = nothing prepended. */
+	taskPrefix?: string;
+	/** Task cards only: template appended to every newly added task. Same
+	 *  placeholders as {@link taskPrefix}. Undefined = nothing appended. */
+	taskSuffix?: string;
 	width: number;
 	size: CardSize;
 	gridCols: number;
@@ -1463,6 +1470,10 @@ export interface TaskCardConfig {
 	/** Heading depth for the card title when written into the daily note;
 	 *  3 (`###`) is the default and persists as undefined. */
 	dailyHeadingLevel: 1 | 2 | 3 | 4 | 5 | 6;
+	/** Wrapper for newly added tasks (empty string = none). Both support the
+	 *  placeholders documented by TASK_AFFIX_PLACEHOLDERS. */
+	taskPrefix: string;
+	taskSuffix: string;
 }
 
 export interface RenderCallbacks {
