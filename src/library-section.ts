@@ -959,6 +959,21 @@ export function renderLibrarySection(
 		renderContent(config);
 	});
 
+	// Refresh button — re-queries the vault on demand.
+	//
+	// A library section already repaints itself on vault events
+	// (refreshScanningSections), but that path compares a render-input
+	// signature and skips the rebuild when it is unchanged. A note whose
+	// frontmatter only resolves once the metadata cache catches up can leave
+	// that signature looking equal, and the card then sits on stale rows until
+	// the user happens to touch sort or search. This is the explicit escape
+	// hatch: query again now, keeping the search text, the page and the
+	// collapsed groups (only the result area is rebuilt).
+	const refreshBtn = toolbar.createDiv({ cls: 'dashboard-library-refresh-btn' });
+	setIcon(refreshBtn, 'refresh-cw');
+	refreshBtn.title = t('library.refresh');
+	refreshBtn.setAttribute('aria-label', t('library.refresh'));
+
 	// New note button — creates a note inside this section's folder(s), or at the
 	// global library path with the section's filters pre-filled (handled in view.ts).
 	const newNoteBtn = toolbar.createDiv({ cls: 'dashboard-library-newnote-btn' });
@@ -1285,6 +1300,14 @@ export function renderLibrarySection(
 		setIcon(sortDirBtn, config.sortDesc ? 'arrow-down-wide-narrow' : 'arrow-up-wide-narrow');
 		onConfigChange(config);
 		currentPage = 1;
+		renderContent(config);
+	});
+
+	// Refresh handler — the same re-query path sort and search take
+	// (queryVaultFiles reads the live metadata cache), so newly created, renamed
+	// or deleted notes show up without leaving the board. currentPage is kept:
+	// renderContent clamps it when the result set shrank below it.
+	refreshBtn.addEventListener('click', () => {
 		renderContent(config);
 	});
 
